@@ -1365,6 +1365,137 @@
   }
   .settings-form .btn { width: auto; padding: 10px 20px; margin-top: 18px; }
 
+  /* ===== KASIR: keranjang simpel ===== */
+  .pos-cart-table {
+    table-layout: fixed;
+    min-width: 0;
+    font-size: 15px;
+  }
+  .pos-cart-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 10px 14px;
+    box-shadow: 0 1px 0 var(--pos-line);
+  }
+  .pos-cart-table .th-price { width: 140px; }
+  .pos-cart-table .th-qty { width: 112px; }
+  .pos-cart-table .th-total { width: 120px; text-align: right; }
+  .pos-cart-table .th-del { width: 44px; }
+  .pos-cart-table td { padding: 10px 10px; }
+  .pos-cart-table thead th { padding-left: 10px; padding-right: 10px; }
+  .pos-cart-table tbody tr:nth-child(even) { background: transparent; }
+  .pos-cart-table tbody tr:hover { background: var(--paper-dim); }
+  .pos-cart-table .pt-name { font-size: 16px; font-weight: 700; max-width: none; }
+  .pos-cart-table .pt-price-btn { font-size: 15px; font-weight: 700; }
+  .pos-cart-table .pt-price-edit { width: 78px; }
+  .pt-disc-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    margin-top: 3px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .pt-disc-info .pt-orig { text-decoration: line-through; }
+  .pt-disc-info .pt-discount { font-size: 11.5px; }
+  .pos-cart-table .pos-qty-ctrl { gap: 6px; }
+  .pos-cart-table .pos-qty-ctrl button {
+    width: 28px; height: 28px; font-size: 17px; border-radius: 6px;
+  }
+  .pos-cart-table .pos-qty-ctrl span { min-width: 22px; font-size: 16px; }
+  .pos-cart-table .pt-total { font-size: 16px; text-align: right; }
+  .pos-cart-table .pt-actions .pt-danger { font-size: 17px; padding: 6px 8px; }
+  .pos-tablewrap .table-scroll { scroll-padding-top: 44px; }
+
+  /* Layar kecil/tablet tegak: halaman boleh scroll, tapi keranjang tetap
+     setinggi maksimal tertentu dan scroll di dalam kotaknya sendiri. */
+  @media (max-width: 980px) {
+    .pos-tablewrap .table-scroll { max-height: 45vh; }
+  }
+
+  /* ===== KASIR: layout tetap & hampir full layar (layar lebar) =====
+     Halaman kasir dikunci setinggi layar, jadi tidak ikut bergeser ke bawah
+     saat barang bertambah. Yang bergerak hanya isi keranjang (scroll di dalam). */
+  @media (min-width: 981px) {
+    body.home-active { height: 100vh; height: 100dvh; overflow: hidden; }
+    body.home-active .shell { height: 100vh; height: 100dvh; min-height: 0; }
+    body.home-active .app {
+      max-width: none;
+      margin: 0;
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 16px 14px;
+    }
+    body.home-active header.top {
+      flex: none;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+    }
+    body.home-active #viewHome {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    body.home-active .pos-grid {
+      flex: 1;
+      min-height: 0;
+      grid-template-columns: minmax(0, 1.7fr) minmax(340px, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      gap: 16px;
+    }
+    body.home-active .pos-cart-col {
+      position: static;
+      max-height: none;
+      height: 100%;
+      min-height: 0;
+    }
+    body.home-active .pos-tablewrap { margin-bottom: 0; }
+    body.home-active .pos-side-col {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      height: 100%;
+    }
+    body.home-active .pos-toppanels { flex: none; margin-bottom: 12px; }
+    body.home-active .pos-bottompanels {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      margin-bottom: 12px;
+    }
+    body.home-active .pos-actions { flex: none; margin-bottom: 0; }
+
+    /* Ukuran elemen dibesarkan agar mudah dibaca & ditekan */
+    body.home-active .cart-title-bar { padding: 12px 18px; }
+    body.home-active .pos-scan-input { font-size: 17px; padding: 12px 14px; }
+    body.home-active .pos-scan-btn { width: 52px; font-size: 18px; }
+    body.home-active .pos-qty-input { width: 64px; padding: 10px 8px; font-size: 16px; }
+    body.home-active .pos-add-btn { padding: 11px 16px; font-size: 15px; }
+    body.home-active .pos-invoice-total { font-size: clamp(34px, 3.6vw, 58px); }
+    body.home-active .paymethod-btn { padding: 11px 6px; font-size: 14px; }
+    body.home-active .pos-cash-input { font-size: 20px; padding: 11px 14px; }
+    body.home-active .pos-quickcash-btn { padding: 12px 8px; font-size: 16px; min-width: 96px; }
+    body.home-active .pos-btn-cancel,
+    body.home-active .pos-btn-process { padding: 16px; font-size: 16px; }
+  }
+  @media (min-width: 1280px) {
+    .pos-cart-table .th-price { width: 160px; }
+    .pos-cart-table .th-qty { width: 140px; }
+    .pos-cart-table .th-total { width: 150px; }
+    .pos-cart-table .th-del { width: 52px; }
+    .pos-cart-table td { padding: 10px 14px; }
+    .pos-cart-table .pt-price-edit { width: 92px; }
+    .pos-cart-table .pt-name { font-size: 17px; }
+    .pos-cart-table .pt-total { font-size: 17px; }
+  }
+
   /* ---- Thermal print receipt ---- */
   .print-only { display: none; }
   #printReceipt {
@@ -1421,7 +1552,7 @@
   }
 </style>
 </head>
-<body>
+<body class="home-active">
 <div class="shell">
   <nav class="sidebar">
     <div class="sidebar-mark">AJ</div>
@@ -1482,13 +1613,11 @@
               <table class="pos-cart-table">
                 <thead>
                   <tr>
-                    <th>#</th>
                     <th>Nama Barang</th>
-                    <th>Harga</th>
-                    <th>Qty</th>
-                    <th>Diskon</th>
-                    <th>Total</th>
-                    <th>Aksi</th>
+                    <th class="th-price">Harga</th>
+                    <th class="th-qty">Qty</th>
+                    <th class="th-total">Total</th>
+                    <th class="th-del"></th>
                   </tr>
                 </thead>
                 <tbody id="cartList"></tbody>
@@ -2087,6 +2216,7 @@
   function switchView(name) {
     if (!pageViews[name]) return;
     currentView = name;
+    document.body.classList.toggle('home-active', name === 'home');
     Object.keys(pageViews).forEach(k => {
       pageViews[k].style.display = k === name ? '' : 'none';
     });
@@ -3105,7 +3235,17 @@
     if (!cartListEl) return;
     const row = cartListEl.querySelector(`tr[data-id="${id}"]`);
     if (!row) return;
-    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Scroll hanya di dalam kotak keranjang (bukan seluruh halaman),
+    // supaya layar tidak bergeser saat barang bertambah.
+    const sc = row.closest('.table-scroll');
+    if (sc) {
+      const head = sc.querySelector('thead');
+      const hh = head ? head.offsetHeight : 0;
+      const rTop = row.offsetTop;
+      const rBot = rTop + row.offsetHeight;
+      if (rTop < sc.scrollTop + hh) sc.scrollTo({ top: Math.max(0, rTop - hh), behavior: 'smooth' });
+      else if (rBot > sc.scrollTop + sc.clientHeight) sc.scrollTo({ top: rBot - sc.clientHeight, behavior: 'smooth' });
+    }
     row.classList.remove('row-just-added');
     // Trigger reflow supaya animasinya jalan lagi walau kelas sebelumnya belum sempat hilang
     void row.offsetWidth;
@@ -3172,23 +3312,29 @@
     });
   }
   function renderCart() {
+    const scrollBox = cartListEl.closest('.table-scroll');
+    const keepScroll = scrollBox ? scrollBox.scrollTop : 0;
     cartListEl.innerHTML = '';
     if (cart.length === 0) {
-      cartListEl.innerHTML = '<tr><td colspan="7" class="pos-empty-row">Belum ada barang. Scan barcode atau cari nama barang di atas.</td></tr>';
+      cartListEl.innerHTML = '<tr><td colspan="5" class="pos-empty-row">Belum ada barang. Scan barcode atau cari nama barang di atas.</td></tr>';
     } else {
       cart.forEach((c, idx) => {
         const row = document.createElement('tr');
         row.dataset.id = c.id;
         const isEditing = editingPriceId === c.id;
         const discount = (c.origPrice - c.price) * c.qty;
+        const discountInfo = (!isEditing && discount > 0)
+          ? `<div class="pt-disc-info"><span class="pt-orig">${fmtRupiah(c.origPrice)}</span><span class="pt-discount">hemat ${fmtRupiah(discount)}</span></div>`
+          : '';
         const priceCell = isEditing
           ? `<input type="text" inputmode="numeric" class="pt-price-edit mono" id="priceEditInput" value="${c.price.toLocaleString('id-ID')}">
              <button class="pt-price-ok" id="priceEditOk" title="Simpan">✓</button>`
           : `<button class="pt-price-btn mono" data-act="editprice" title="Klik untuk ubah harga">${fmtRupiah(c.price)} <span class="pt-price-pencil">✎</span></button>`;
         row.innerHTML = `
-          <td>${idx + 1}.</td>
-          <td class="pt-name"><div class="pt-name-wrap"><span class="pt-name-text">${escapeHtml(c.name)}</span></div></td>
-          <td class="mono pt-price-cell">${priceCell}</td>
+          <td class="pt-name">
+            <div class="pt-name-wrap"><span class="pt-name-text">${escapeHtml(c.name)}</span></div>
+          </td>
+          <td class="mono pt-price-cell">${priceCell}${discountInfo}</td>
           <td>
             <div class="pos-qty-ctrl">
               <button data-act="minus">−</button>
@@ -3196,7 +3342,6 @@
               <button data-act="plus">+</button>
             </div>
           </td>
-          <td class="pt-discount mono">${discount > 0 ? fmtRupiah(discount) : '—'}</td>
           <td class="pt-total mono">${fmtRupiah(c.price * c.qty)}</td>
           <td>
             <div class="pt-actions">
@@ -3240,6 +3385,7 @@
       const totalQty = cart.reduce((sum, c) => sum + c.qty, 0);
       cartItemCountEl.textContent = `${totalQty} barang`;
     }
+    if (scrollBox) scrollBox.scrollTop = keepScroll;
     recalcKembalian();
   }
 
