@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARRIDHO JAYA - Login</title>
+  <style>
+    :root {
+      --paper: #FFFFFF;
+      --paper-dim: #F2ECDD;
+      --ink: #211C15;
+      --ink-soft: #4A4136;
+      --muted: #6E6455;
+      --border: #A99A7C;
+      --red: #A6320C;
+      --red-deep: #7E260A;
+      --red-dim: #F3D9CC;
+      --green: #2F5940;
+      --green-deep: #24462F;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--paper-dim);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    .mono { font-family: "SF Mono", "Consolas", "Menlo", monospace; }
+
+    .login-wrap {
+      background: var(--ink);
+      border-radius: 14px;
+      padding: 3px;
+      width: 100%;
+      max-width: 360px;
+    }
+    .login-card {
+      background: var(--paper);
+      border-radius: 12px;
+      padding: 34px 30px 28px;
+      text-align: center;
+      background-image: repeating-linear-gradient(
+        -45deg, transparent, transparent 5px, var(--paper-dim) 5px, var(--paper-dim) 6px
+      );
+      background-size: 100% 14px;
+      background-repeat: repeat-x;
+      background-position: bottom;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: var(--red);
+      color: var(--paper);
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px;
+      transform: rotate(-3deg);
+    }
+
+    .login-card h2 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+
+    .login-card p.sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 26px;
+      padding-bottom: 20px;
+      border-bottom: 1px dashed var(--border);
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-soft);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--paper-dim);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .input-group input:focus {
+      border-color: var(--red);
+      outline: 2px solid var(--red);
+      background: var(--paper);
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 13px;
+      margin-top: 6px;
+      background: var(--red);
+      border: none;
+      border-radius: 8px;
+      color: var(--paper);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.08s, box-shadow 0.15s;
+    }
+
+    .btn-login:hover {
+      background: var(--red-deep);
+      box-shadow: 0 8px 18px rgba(166, 50, 12, 0.28);
+    }
+
+    .btn-login:active {
+      transform: scale(0.98);
+    }
+
+    .message {
+      margin-top: 16px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      min-height: 20px;
+    }
+
+    .error { color: var(--red); }
+    .success { color: var(--green); }
+  </style>
+</head>
+<body>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="brand-mark">AJ</div>
+      <h2>TOKO ARRIDHO JAYA</h2>
+      <p class="sub">Silakan masuk ke sistem kasir</p>
+
+      <form id="loginForm">
+        <div class="input-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" class="mono" placeholder="Masukkan username" required autocomplete="off">
+        </div>
+
+        <div class="input-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" class="mono" placeholder="••••••••" required>
+        </div>
+
+        <button type="submit" class="btn-login">Masuk</button>
+      </form>
+
+      <div id="message" class="message"></div>
+    </div>
+  </div>
+
+  <script>
+    const loginForm = document.getElementById('loginForm');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const messageDiv = document.getElementById('message');
+
+    // Data akun default (dipakai kalau localStorage masih kosong)
+    let savedAuth = { username: 'admin', password: 'hahaha' };
+    try {
+      const storedData = localStorage.getItem('kasir_auth');
+      if (storedData) {
+        savedAuth = JSON.parse(storedData);
+      } else {
+        // Belum ada data tersimpan sebelumnya -> buat default agar konsisten dengan home.html
+        localStorage.setItem('kasir_auth', JSON.stringify(savedAuth));
+      }
+    } catch (err) {
+      console.error("Gagal membaca localStorage:", err);
+    }
+
+    // Username langsung terisi otomatis, tinggal isi password
+    usernameInput.value = savedAuth.username || '';
+    passwordInput.focus();
+
+    // Hilangkan alert saat user mulai mengetik ulang
+    function clearAlert() {
+      messageDiv.textContent = '';
+      messageDiv.className = 'message';
+    }
+
+    usernameInput.addEventListener('input', clearAlert);
+    passwordInput.addEventListener('input', clearAlert);
+
+    loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const usernameVal = usernameInput.value.trim();
+      const passwordVal = passwordInput.value.trim();
+
+      // Ambil data autentikasi terbaru (kalau berubah di tab lain)
+      try {
+        const storedData = localStorage.getItem('kasir_auth');
+        if (storedData) savedAuth = JSON.parse(storedData);
+      } catch (err) {
+        console.error("Gagal membaca localStorage:", err);
+      }
+
+      // Validasi akun
+      if (usernameVal === savedAuth.username && passwordVal === savedAuth.password) {
+        messageDiv.className = 'message success';
+        messageDiv.textContent = 'Berhasil masuk...';
+        
+        try {
+          sessionStorage.setItem('isLoggedIn', 'true');
+        } catch (err) {}
+
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 500);
+      } else {
+        messageDiv.className = 'message error';
+        messageDiv.textContent = 'password salah njirr';
+      }
+    });
+  </script>
+
+</body>
+</html>
