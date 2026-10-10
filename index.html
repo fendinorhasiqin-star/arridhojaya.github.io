@@ -4515,7 +4515,14 @@
 
   // ---------- Backup otomatis ke Google Sheets ----------
   // Penyimpanan utama tetap localStorage (offline). Sheets hanya cadangan di cloud.
-  function gsCfg() { try { return JSON.parse(storageGet('gsheet') || '{}') || {}; } catch (e) { return {}; } }
+  // URL Web App sudah tertanam; di tiap perangkat baru cukup isi Token rahasia sekali.
+  const GS_DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxUbhfyJVLirkyS3aTDKMaJgMP4-P-JQd_GPyI6nyGPn9VVbky9fR5yy1unCnhao3PJhA/exec';
+  function gsCfg() {
+    let c = {};
+    try { c = JSON.parse(storageGet('gsheet') || '{}') || {}; } catch (e) { c = {}; }
+    if (!c.url) c.url = GS_DEFAULT_URL;
+    return c;
+  }
   function gsSaveCfg(c) { storageSet('gsheet', JSON.stringify(c)); }
   function gsConfigured() { const c = gsCfg(); return !!(c.url && c.token); }
   let gsTimer = null, gsBusy = false, gsSuppress = false;
