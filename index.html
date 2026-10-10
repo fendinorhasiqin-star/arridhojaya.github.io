@@ -1153,6 +1153,9 @@
   }
   .produk-table tr:last-child td { border-bottom: none; }
   .produk-table td.pt-price { color: var(--red); font-weight: 700; }
+  .produk-table th.pt-no, .produk-table td.pt-no { width: 44px; text-align: right; color: var(--muted); padding-right: 6px; }
+  .produk-count { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 8px; }
+  .produk-count b { color: var(--ink); }
   .produk-table td.pt-actions { text-align: right; white-space: nowrap; }
   .pt-btn {
     background: none; border: none; cursor: pointer;
@@ -2359,20 +2362,24 @@
           (p.barcode && p.barcode.toLowerCase().includes(term))
         );
     const list = sortProducts(filtered, produkSortSelect.value);
+    const countHtml = term
+      ? `<div class="produk-count">Menampilkan <b>${list.length}</b> dari <b>${products.length}</b> barang</div>`
+      : `<div class="produk-count">Total <b>${products.length}</b> barang terdaftar</div>`;
     if (products.length === 0) {
       produkTableWrap.innerHTML = '<div class="empty-page-note">Belum ada barang. Klik "+ Tambah Barang" untuk mulai.</div>';
       return;
     }
     if (list.length === 0) {
-      produkTableWrap.innerHTML = '<div class="empty-page-note">Barang tidak ditemukan.</div>';
+      produkTableWrap.innerHTML = countHtml + '<div class="empty-page-note">Barang tidak ditemukan.</div>';
       return;
     }
-    produkTableWrap.innerHTML = `
+    produkTableWrap.innerHTML = countHtml + `
       <table class="produk-table">
-        <thead><tr><th>Nama Barang</th><th>Barcode</th><th>Harga</th><th></th></tr></thead>
+        <thead><tr><th class="pt-no">No</th><th>Nama Barang</th><th>Barcode</th><th>Harga</th><th></th></tr></thead>
         <tbody>
-          ${list.map(p => `
+          ${list.map((p, i) => `
             <tr data-id="${p.id}">
+              <td class="pt-no mono">${i + 1}</td>
               <td>${escapeHtml(p.name)}</td>
               <td class="mono">${p.barcode ? escapeHtml(p.barcode) : '—'}</td>
               <td class="pt-price mono">${fmtRupiah(p.price)}</td>
