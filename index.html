@@ -1808,6 +1808,7 @@
         </select>
         <button class="btn btn-primary produk-add-btn" id="produkAddBtn">+ Tambah Barang</button>
         <button class="btn btn-secondary produk-add-btn" id="produkBulkBtn" title="Tambah banyak barang sekaligus (tampilan seperti Excel)">▦ Tambah Massal</button>
+        <button class="btn btn-secondary produk-add-btn" id="produkLabelBtn" title="Buka halaman cetak label barcode (label.html) di tab baru">🏷 Cetak Label</button>
       </div>
       <div id="produkTableWrap"></div>
     </div>
@@ -4290,6 +4291,7 @@
     // Cek semua baris. Mengembalikan daftar barang yang valid + jumlah baris bermasalah.
     function validate() {
       const seen = new Map(); // barcode -> nomor baris pertama yang memakainya
+      const lbR = lbRanges(); // nomor label yang pernah dicetak (dari label.html)
       const list = [];
       let bad = 0, firstBad = -1;
       rows().forEach((tr, i) => {
@@ -4326,8 +4328,13 @@
         } else {
           list.push({ name, barcode, price });
           tr.classList.add('bk-ok');
-          st.textContent = '✓ Siap';
-          st.title = '';
+          if (barcode && /^99\d{8}$/.test(barcode) && !lbInRanges(barcode, lbR)) {
+            st.textContent = '✓ Siap (kode 99… belum pernah dicetak)';
+            st.title = 'Kode ini berawalan 99 tapi tidak ada di catatan label yang pernah dicetak. Cek apakah salah ketik.';
+          } else {
+            st.textContent = barcode && lbInRanges(barcode, lbR) ? '✓ Siap (kode label)' : '✓ Siap';
+            st.title = '';
+          }
         }
       });
       summaryEl.textContent = list.length || bad
@@ -4449,6 +4456,23 @@
     };
   }
   document.getElementById('produkBulkBtn').onclick = openBulkAddModal;
+
+  // ---------- Produk: Cetak Label (halaman terpisah: label.html, satu folder dengan index.html) ----------
+  // label.html membaca data barang yang sama dari browser dan mencatat nomor yang sudah dicetak di 'labelRanges'.
+  document.getElementById('produkLabelBtn').onclick = () => { window.open('label.html', '_blank'); };
+  // Nomor label yang pernah dicetak, dipakai untuk memberi petunjuk di Tambah Massal.
+  function lbRanges() {
+    try {
+      const r = JSON.parse(storageGet('labelRanges') || '[]');
+      return Array.isArray(r) ? r.filter(x => Array.isArray(x) && /^\d+$/.test(x[0]) && /^\d+$/.test(x[1])) : [];
+    } catch (e) { return []; }
+  }
+  function lbInRanges(code, ranges) {
+    code = String(code || '').trim();
+    if (!/^\d+$/.test(code)) return false;
+    const n = BigInt(code);
+    return ranges.some(([a, b]) => a.length === code.length && n >= BigInt(a) && n <= BigInt(b));
+  }
 
   // ---------- Toggle Password Toggle Event ----------
   const toggleBtnHome = document.getElementById('togglePasswordHome');

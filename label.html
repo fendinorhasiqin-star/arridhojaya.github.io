@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cetak Label Barcode</title>
+<style>
+  :root {
+    --paper: #FFFFFF; --paper-dim: #F2ECDD; --ink: #211C15; --ink-soft: #4A4136; --muted: #6E6455;
+    --border: #A99A7C; --red: #A6320C; --red-deep: #7E260A; --red-dim: #F3D9CC;
+    --green: #2F5940; --green-dim: #D9EADD; --yellow: #946B0A; --yellow-dim: #FBEBC9;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; background: var(--paper-dim); color: var(--ink); }
+  .app { height: 100vh; display: flex; flex-direction: column; }
+
+  /* ----- header ----- */
+  .top { flex: none; display: flex; align-items: center; gap: 14px; padding: 10px 18px; background: var(--paper); border-bottom: 2px solid var(--ink); }
+  .top h1 { margin: 0; font-size: 17px; }
+  .top .back { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--red); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; }
+  .top .back:hover { background: var(--red-dim); }
+  .banner { flex: none; padding: 9px 18px; font-size: 13px; line-height: 1.5; }
+  .banner.ok { background: var(--green-dim); color: var(--green); }
+  .banner.bad { background: var(--red-dim); color: var(--red); font-weight: 700; }
+
+  /* ----- isi ----- */
+  .body { flex: 1; min-height: 0; display: flex; }
+  .side { width: 370px; flex: 0 0 370px; overflow-y: auto; background: var(--paper); border-right: 1px solid var(--border); }
+  .sec { padding: 12px 16px 14px; border-bottom: 1px solid var(--paper-dim); }
+  .sec h4 { margin: 0 0 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .stats { font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; background: var(--paper-dim); }
+  .stats b { color: var(--ink); }
+  .mono { font-family: "SF Mono", Consolas, Menlo, monospace; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-soft); margin: 12px 0 4px; }
+  input, select { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; font-family: inherit; background: var(--paper); color: var(--ink); }
+  input:focus, select:focus { outline: 2px solid var(--red); border-color: var(--red); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .full { grid-column: 1 / -1; }
+  .chk { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .chk input { width: auto; }
+  input[type=range] { padding: 0; }
+  .hide { display: none !important; }
+  .item { border: 1px solid var(--border); border-radius: 8px; padding: 2px 10px 10px; margin: 10px 0; background: var(--paper-dim); }
+  .item-head { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .item-head b { font-size: 13px; }
+  .item .grid { grid-template-columns: 1fr 90px; }
+  .del { background: var(--red-dim); color: var(--red); border: none; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .btn { padding: 10px 16px; border-radius: 7px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .btn-primary { background: var(--red); color: #fff; }
+  .btn-primary:hover { background: var(--red-deep); }
+  .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--ink-soft); }
+
+  .preview { flex: 1; min-width: 0; overflow: auto; padding: 16px; }
+  .sheets { --z: 1.4; display: flex; flex-wrap: wrap; gap: 18px; align-content: flex-start; }
+  .sheet { zoom: var(--z); width: 100mm; height: 150mm; flex: 0 0 auto; background: #fff; display: grid; box-shadow: 0 2px 10px rgba(0,0,0,.25); overflow: hidden; break-after: page; page-break-after: always; }
+  .label { display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; padding: 1mm; color: #000; }
+  .label.cut { outline: 0.1mm dotted #000; outline-offset: -0.1mm; }
+  .label svg { width: 92%; flex: 1 1 auto; min-height: 0; max-height: 55%; }
+  .label .num { font-family: "Courier New", monospace; font-size: 3.2mm; line-height: 1.1; letter-spacing: .3mm; margin-top: .6mm; }
+  .label .name { font-size: 3mm; line-height: 1.15; margin-top: .4mm; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .label .price { font-size: 4.6mm; line-height: 1.1; margin-top: .3mm; font-weight: 800; }
+  .label .tag { font-size: 2.2mm; margin-top: .3mm; }
+
+  .foot { flex: none; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 18px; background: var(--paper); border-top: 1px solid var(--border); }
+  .msg { font-size: 12.5px; line-height: 1.5; flex: 1; min-width: 0; }
+  .msg .bad { color: var(--red); font-weight: 700; }
+  .msg .warn { color: var(--yellow); font-weight: 700; }
+  .msg .okk { color: var(--green); font-weight: 700; }
+  .msg button { border: 1px solid var(--border); background: var(--paper); border-radius: 5px; font-size: 12px; padding: 3px 8px; cursor: pointer; margin-left: 4px; }
+  .btns { display: flex; gap: 8px; flex: none; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(36,31,26,.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+  .dialog { background: #fff; border-radius: 10px; padding: 20px; width: min(420px, 100%); }
+  .dialog h3 { margin: 0 0 10px; font-size: 16px; }
+  .dialog p { margin: 0; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+  .dialog .acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  .toast { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 60; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+  .toast.err { background: var(--red); }
+
+  #printLabels { display: none; }
+  @page { size: 100mm 150mm; margin: 0; }
+  @media (max-width: 820px) {
+    .app { height: auto; min-height: 100vh; }
+    .body { flex-direction: column; }
+    .side { width: 100%; flex: none; overflow: visible; border-right: 0; }
+    .preview { flex: none; overflow: visible; }
+    .sheets { --z: .85 !important; justify-content: center; }
+    .foot { flex-direction: column; align-items: stretch; }
+    .btns .btn { flex: 1; }
+  }
+  @media print {
+    html, body { height: auto; width: 100mm; background: #fff; }
+    .app, .toast, .overlay { display: none !important; }
+    #printLabels { display: block; }
+    #printLabels .sheet { zoom: 1; box-shadow: none; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>🏷 Cetak Label Barcode</h1>
+    <a class="back" href="index.html">← Kembali ke Kasir</a>
+  </header>
+  <div class="banner" id="banner"></div>
+
+  <div class="body">
+    <aside class="side">
+      <div class="sec stats" id="stats"></div>
+
+      <div class="sec">
+        <h4>1. Isi label</h4>
+        <label>Mode</label>
+        <select id="mode">
+          <option value="diff">Berbeda semua (nomor berurutan)</option>
+          <option value="items">Dari daftar barang (1 atau lebih barcode)</option>
+        </select>
+        <div id="arrWrap" class="hide">
+          <label>Susunan di kertas</label>
+          <select id="arr">
+            <option value="seq">Berurutan (baris demi baris)</option>
+            <option value="col">Per kolom (1 barang = 1 kolom)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sec" id="diffBox">
+        <h4>Nomor barcode</h4>
+        <div class="grid">
+          <div><label>Nomor awal</label><input id="start" type="text" inputmode="numeric"></div>
+          <div><label>Jumlah label</label><input id="qty" type="number" min="1" max="5000" value="100"></div>
+          <div class="full"><label>Nama barang (opsional)</label><input id="name" type="text" placeholder="cth. Indomie Goreng"></div>
+          <div class="full"><label>Harga Rp (kosong = tidak dicetak)</label><input id="price" type="text" inputmode="numeric" placeholder="cth. 3500"></div>
+        </div>
+      </div>
+
+      <div class="sec hide" id="itemsBox">
+        <h4>Daftar barang</h4>
+        <div id="items"></div>
+        <button class="btn btn-secondary" id="addItem" type="button" style="width:100%;">+ Tambah barang</button>
+      </div>
+
+      <div class="sec">
+        <h4>2. Kertas dan tampilan</h4>
+        <div class="grid">
+          <div><label>Kolom</label><input id="cols" type="number" min="1" max="6" value="2"></div>
+          <div><label>Baris</label><input id="rows" type="number" min="1" max="12" value="5"></div>
+          <div class="full"><label>Teks kecil di label (opsional)</label><input id="tag" type="text" placeholder="cth. nama toko"></div>
+        </div>
+        <label class="chk"><input id="cut" type="checkbox" checked> Garis potong (titik-titik)</label>
+        <label>Ukuran pratinjau</label>
+        <input id="zoom" type="range" min="0.6" max="2.4" step="0.1" value="1.4">
+      </div>
+    </aside>
+    <main class="preview"><div class="sheets" id="sheets"></div></main>
+  </div>
+
+  <div class="foot">
+    <div class="msg" id="msg"></div>
+    <div class="btns">
+      <button class="btn btn-secondary" id="csv" type="button">Unduh CSV</button>
+      <button class="btn btn-primary" id="print" type="button">Cetak</button>
+    </div>
+  </div>
+</div>
+<div id="printLabels"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* Halaman ini satu domain dengan kasir (index.html), jadi membaca data yang sama dari browser:
+   'kasirArridho:products' (daftar barang) dan 'kasirArridho:labelRanges' (nomor yang sudah dicetak). */
+const STORAGE_PREFIX = 'kasirArridho:';
+const sGet = (k) => { try { return localStorage.getItem(STORAGE_PREFIX + k); } catch (e) { return null; } };
+const sSet = (k, v) => { try { localStorage.setItem(STORAGE_PREFIX + k, v); return true; } catch (e) { return false; } };
+
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const digits = (s) => String(s || '').replace(/\D/g, '');
+const ci = (v, lo, hi, d) => Math.max(lo, Math.min(hi, parseInt(v, 10) || d));
+
+const LB_P = ["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+const LB_PREFIX = '99';   // awalan kode buatan sendiri (barcode pabrik Indonesia berawalan 899 / 13 digit)
+const LB_LEN = 10;        // panjang kode buatan sendiri
+
+/* ---------- data produk dari kasir ---------- */
+let products = [];
+let productsFound = false;
+function loadProducts() {
+  const raw = sGet('products');
+  productsFound = raw !== null;
+  try { products = raw ? JSON.parse(raw) : []; if (!Array.isArray(products)) products = []; }
+  catch (e) { products = []; productsFound = false; }
+}
+function renderBanner() {
+  const el = $('banner');
+  if (!productsFound) {
+    const extra = location.protocol === 'file:' ? ' Halaman ini dibuka dari file lokal, buka lewat alamat GitHub Pages kasirmu.' : '';
+    el.className = 'banner bad';
+    el.textContent = 'Data produk kasir tidak terbaca di browser ini, jadi pengecekan "barcode sudah dipakai" TIDAK jalan dan nomor awal bisa bentrok. ' +
+      'Buka halaman ini dari alamat kasirmu yang sama (lewat tombol Cetak Label di halaman Produk), di browser yang sama dengan kasir.' + extra;
+  } else {
+    el.className = 'banner ok';
+    el.textContent = `✓ Terhubung ke data kasir: ${products.length.toLocaleString('id-ID')} barang terbaca.`;
+  }
+}
+
+/* ---------- Code128 subset C ---------- */
+function lbSvg(d) {
+  if (d.length % 2) d = '0' + d;
+  const vals = [105];
+  for (let i = 0; i < d.length; i += 2) vals.push(parseInt(d.substr(i, 2), 10));
+  let sum = vals[0];
+  for (let i = 1; i < vals.length; i++) sum += vals[i] * i;
+  vals.push(sum % 103);
+  vals.push(106);
+  const pattern = vals.map(v => LB_P[v]).join('');
+  const quiet = 10;
+  let x = quiet, bar = true, rects = '';
+  for (const ch of pattern) {
+    const w = +ch;
+    if (bar) rects += `<rect x="${x}" y="0" width="${w}" height="50"/>`;
+    x += w; bar = !bar;
+  }
+  return `<svg viewBox="0 0 ${x + quiet} 50" preserveAspectRatio="none" shape-rendering="crispEdges" fill="#000">${rects}</svg>`;
+}
+
+/* ---------- catatan nomor yang sudah dicetak: rentang [dari, sampai] ---------- */
+function lbRanges() {
+  try {
+    const r = JSON.parse(sGet('labelRanges') || '[]');
+    return Array.isArray(r) ? r.filter(x => Array.isArray(x) && /^\d+$/.test(x[0]) && /^\d+$/.test(x[1])) : [];
+  } catch (e) { return []; }
+}
+function lbMerge(list) {
+  const byLen = {};
+  list.forEach(([a, b]) => { (byLen[a.length] = byLen[a.length] || []).push([BigInt(a), BigInt(b)]); });
+  const out = [];
+  Object.keys(byLen).forEach(len => {
+    const arr = byLen[len].sort((x, y) => (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0));
+    const fmt = (n) => n.toString().padStart(+len, '0');
+    let cur = arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      const n = arr[i];
+      if (n[0] <= cur[1] + 1n) { if (n[1] > cur[1]) cur[1] = n[1]; }
+      else { out.push([fmt(cur[0]), fmt(cur[1])]); cur = n; }
+    }
+    out.push([fmt(cur[0]), fmt(cur[1])]);
+  });
+  return out;
+}
+function lbInRanges(code, ranges) {
+  code = String(code || '').trim();
+  if (!/^\d+$/.test(code)) return false;
+  const n = BigInt(code);
+  return ranges.some(([a, b]) => a.length === code.length && n >= BigInt(a) && n <= BigInt(b));
+}
+// Nomor aman berikutnya: lebih besar dari semua kode buatan sendiri yang sudah dicetak atau sudah dipakai barang.
+function lbNextStart() {
+  let max = BigInt(LB_PREFIX + '0'.repeat(LB_LEN - LB_PREFIX.length));
+  const isOwn = (s) => s.length === LB_LEN && s.startsWith(LB_PREFIX) && /^\d+$/.test(s);
+  lbRanges().forEach(([a, b]) => { if (isOwn(a) && BigInt(b) > max) max = BigInt(b); });
+  products.forEach(p => { const b = String(p.barcode || '').trim(); if (isOwn(b) && BigInt(b) > max) max = BigInt(b); });
+  return (max + 1n).toString();
+}
+
+/* ---------- tampilan sheet ---------- */
+function sheetsHtml(pages, cols, rows, cut, tag) {
+  const fmt = (v) => { const d = digits(v); return d ? 'Rp ' + Number(d).toLocaleString('id-ID') : ''; };
+  const cell = (c) => {
+    if (!c) return `<div class="label${cut ? ' cut' : ''}"></div>`;
+    const p = fmt(c.price);
+    return `<div class="label${cut ? ' cut' : ''}">${lbSvg(c.code)}<div class="num">${esc(c.code)}</div>` +
+      (c.name ? `<div class="name">${esc(c.name)}</div>` : '') +
+      (p ? `<div class="price">${p}</div>` : '') +
+      (tag ? `<div class="tag">${esc(tag)}</div>` : '') + '</div>';
+  };
+  return pages.map(pg =>
+    `<div class="sheet" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);">${pg.map(cell).join('')}</div>`
+  ).join('');
+}
+
+/* ---------- toast & dialog ---------- */
+let toastTimer;
+function toast(msg, err) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function ask(title, html, okText) {
+  return new Promise((resolve) => {
+    const o = document.createElement('div');
+    o.className = 'overlay';
+    o.innerHTML = `<div class="dialog"><h3>${esc(title)}</h3><p>${html}</p>
+      <div class="acts"><button class="btn btn-secondary" id="dNo">Batal</button><button class="btn btn-primary" id="dYes">${esc(okText || 'Ya')}</button></div></div>`;
+    document.body.appendChild(o);
+    const done = (v) => { o.remove(); resolve(v); };
+    o.querySelector('#dYes').onclick = () => done(true);
+    o.querySelector('#dNo').onclick = () => done(false);
+    o.onclick = (e) => { if (e.target === o) done(false); };
+  });
+}
+
+/* ---------- daftar barang ---------- */
+function renumber() {
+  Array.from($('items').children).forEach((d, i) => { d.querySelector('.no').textContent = 'Barang ' + (i + 1); });
+}
+function addItem(code, count) {
+  const d = document.createElement('div');
+  d.className = 'item';
+  d.innerHTML = `
+    <div class="item-head"><b class="no"></b><button class="del" type="button">Hapus</button></div>
+    <div class="grid">
+      <div><label>Barcode (angka)</label><input class="li-code" type="text" inputmode="numeric" value="${esc(code)}"></div>
+      <div><label>Jumlah</label><input class="li-count" type="number" min="1" max="5000" value="${count}"></div>
+      <div class="full"><label>Nama barang (opsional)</label><input class="li-name" type="text"></div>
+      <div class="full"><label>Harga Rp (kosong = tanpa harga)</label><input class="li-price" type="text" inputmode="numeric"></div>
+    </div>`;
+  d.querySelector('.del').onclick = () => { d.remove(); renumber(); refresh(); };
+  d.querySelectorAll('input').forEach(el => el.addEventListener('input', refresh));
+  $('items').appendChild(d);
+  renumber();
+}
+function readItems() {
+  return Array.from($('items').children).map(d => ({
+    code: digits(d.querySelector('.li-code').value),
+    name: d.querySelector('.li-name').value.trim(),
+    price: d.querySelector('.li-price').value,
+    count: ci(d.querySelector('.li-count').value, 1, 5000, 1)
+  })).filter(it => it.code);
+}
+$('addItem').onclick = () => {
+  const last = readItems().slice(-1)[0];
+  let next = lbNextStart();
+  if (last) {
+    const n = (BigInt(last.code) + 1n).toString().padStart(last.code.length, '0');
+    if (BigInt(n) > BigInt(next)) next = n;
+  }
+  addItem(next, 5);
+  refresh();
+};
+
+/* ---------- susun label ---------- */
+function build() {
+  const mode = $('mode').value;
+  const cols = ci($('cols').value, 1, 6, 2);
+  const rows = ci($('rows').value, 1, 12, 5);
+  const per = cols * rows;
+  const pages = [];
+  let flat = [];
+  const pushPages = (list) => {
+    for (let i = 0; i < list.length; i += per) {
+      const pg = list.slice(i, i + per);
+      while (pg.length < per) pg.push(null);
+      pages.push(pg);
+    }
+  };
+  if (mode === 'diff') {
+    const start = digits($('start').value) || lbNextStart();
+    const qty = ci($('qty').value, 1, 5000, 1);
+    const name = $('name').value.trim(), price = $('price').value;
+    const n = BigInt(start);
+    for (let i = 0; i < qty; i++) flat.push({ code: (n + BigInt(i)).toString().padStart(start.length, '0'), name, price });
+    pushPages(flat);
+  } else {
+    const items = readItems();
+    flat = items;
+    if ($('arr').value === 'seq') {
+      const all = [];
+      items.forEach(it => { for (let i = 0; i < it.count; i++) all.push(it); });
+      pushPages(all);
+    } else {
+      for (let g = 0; g < items.length; g += cols) {
+        const group = items.slice(g, g + cols);
+        const maxCount = Math.max(...group.map(it => it.count));
+        for (let s = 0; s < Math.ceil(maxCount / rows); s++) {
+          const pg = new Array(per).fill(null);
+          group.forEach((it, c2) => {
+            for (let r = 0; r < rows; r++) if (s * rows + r < it.count) pg[r * cols + c2] = it;
+          });
+          pages.push(pg);
+        }
+      }
+    }
+  }
+  return { mode, cols, rows, per, pages, flat, cut: $('cut').checked, tag: $('tag').value.trim() };
+}
+
+/* ---------- cek bentrok ---------- */
+function analyze(b) {
+  const usedBy = new Map();
+  products.forEach(p => { const k = String(p.barcode || '').trim().toLowerCase(); if (k) usedBy.set(k, p); });
+  const ranges = lbRanges();
+  const usedHits = [], printedHits = [], seen = new Set(), dup = [];
+  b.flat.forEach(c => {
+    if (seen.has(c.code)) { if (b.mode === 'items' && !dup.includes(c.code)) dup.push(c.code); return; }
+    seen.add(c.code);
+    const p = usedBy.get(c.code.toLowerCase());
+    if (p) usedHits.push({ code: c.code, name: p.name });
+    else if (lbInRanges(c.code, ranges)) printedHits.push(c.code);
+  });
+  return { usedHits, printedHits, dup };
+}
+
+function renderStats() {
+  const ranges = lbRanges();
+  let total = 0n;
+  ranges.forEach(([a, b]) => { total += BigInt(b) - BigInt(a) + 1n; });
+  const usedInRanges = new Set(products.map(p => String(p.barcode || '').trim()).filter(c => lbInRanges(c, ranges))).size;
+  const pending = total > 0n ? Math.max(0, Number(total) - usedInRanges) : 0;
+  $('stats').innerHTML =
+    `Nomor aman berikutnya: <b class="mono">${lbNextStart()}</b><br>` +
+    `Label sudah dicetak tapi belum dipasang ke barang: <b>${pending.toLocaleString('id-ID')}</b>`;
+}
+
+function refresh() {
+  const mode = $('mode').value;
+  $('diffBox').classList.toggle('hide', mode !== 'diff');
+  $('itemsBox').classList.toggle('hide', mode !== 'items');
+  $('arrWrap').classList.toggle('hide', mode !== 'items');
+  $('sheets').style.setProperty('--z', $('zoom').value);
+
+  const b = build();
+  $('sheets').innerHTML = sheetsHtml(b.pages, b.cols, b.rows, b.cut, b.tag);
+  const a = analyze(b);
+  const total = b.pages.reduce((s, pg) => s + pg.filter(Boolean).length, 0);
+  const parts = [];
+  if (!productsFound) parts.push('<span class="bad">Data produk tidak terbaca, pengecekan bentrok tidak jalan.</span>');
+  if (a.dup.length) parts.push(`<span class="bad">Barcode kembar di daftar: ${a.dup.slice(0, 3).map(esc).join(', ')}.</span>`);
+  if (a.usedHits.length) {
+    const ex = a.usedHits.slice(0, 2).map(h => `${esc(h.code)} → ${esc(h.name)}`).join(', ');
+    parts.push(`<span class="bad">${a.usedHits.length} kode sudah dipakai barang lain (${ex}).</span>` +
+      (mode === 'diff' ? '<button type="button" id="fix">Mulai dari nomor aman</button>' : ''));
+  }
+  if (a.printedHits.length) parts.push(`<span class="warn">${a.printedHits.length} kode sudah pernah dicetak sebelumnya.</span>`);
+  if (!parts.length) parts.push('<span class="okk">✓ Semua kode aman: belum dipakai barang lain dan belum pernah dicetak.</span>');
+  $('msg').innerHTML = parts.join(' ') +
+    `<br><span style="color:var(--muted);">${total} label, ${b.per} per lembar, ${b.pages.length} lembar 100×150 mm. Di dialog cetak: kertas 100×150 mm, margin None, skala 100%.</span>`;
+  renderStats();
+  return { b, a };
+}
+$('msg').onclick = (e) => {
+  if (e.target && e.target.id === 'fix') { $('start').value = lbNextStart(); refresh(); }
+};
+
+['mode', 'arr', 'start', 'qty', 'name', 'price', 'cols', 'rows', 'tag', 'cut', 'zoom'].forEach(id => {
+  const el = $(id);
+  // Kolom teks/angka cukup 'input'. Kalau 'change' ikut merender ulang, tombol di pesan bisa hilang sebelum sempat diklik.
+  if (el.tagName === 'SELECT' || el.type === 'checkbox') el.addEventListener('change', refresh);
+  else el.addEventListener('input', refresh);
+});
+$('price').addEventListener('input', () => {
+  const d = digits($('price').value);
+  $('price').value = d ? parseInt(d, 10).toLocaleString('id-ID') : '';
+});
+
+$('csv').onclick = () => {
+  const { b } = refresh();
+  const qt = (t) => '"' + String(t || '').replace(/"/g, '""') + '"';
+  const lines = ['barcode,nama,harga'].concat(b.flat.map(c => [c.code, qt(c.name), digits(c.price)].join(',')));
+  const blob = new Blob(['﻿' + lines.join('\n') + '\n'], { type: 'text/csv' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'daftar-barcode.csv';
+  link.click();
+};
+
+$('print').onclick = async () => {
+  loadProducts(); renderBanner();   // ambil data terbaru dari kasir sebelum mengecek
+  const { b, a } = refresh();
+  if (!b.flat.length) { toast('Belum ada barcode untuk dicetak', true); return; }
+  if (a.dup.length) { toast('Ada barcode kembar di daftar barang', true); return; }
+  if (!productsFound) {
+    const ok = await ask('Data produk tidak terbaca',
+      'Halaman ini tidak bisa melihat daftar barang kasir, jadi tidak bisa mengecek apakah kode sudah dipakai. Cetak hanya kalau kamu yakin nomornya belum pernah dipakai. Lanjut?', 'Tetap cetak');
+    if (!ok) return;
+  }
+  if (a.usedHits.length && b.mode === 'diff') {
+    toast('Ada kode yang sudah dipakai barang lain. Pakai "Mulai dari nomor aman".', true);
+    return;
+  }
+  if (a.usedHits.length) {
+    const ex = a.usedHits.slice(0, 3).map(h => `${esc(h.code)} (${esc(h.name)})`).join(', ');
+    const ok = await ask('Barcode sudah dipakai',
+      `${a.usedHits.length} barcode sudah dipakai barang di daftar produk: ${ex}. Cetak hanya kalau ini cetak ulang label untuk barang yang SAMA. Lanjut cetak?`, 'Tetap cetak');
+    if (!ok) return;
+  }
+  if (a.printedHits.length) {
+    const ok = await ask('Kode pernah dicetak',
+      `${a.printedHits.length} kode sudah pernah dicetak sebelumnya. Pastikan label lama tidak masih tertempel di barang lain. Lanjut cetak?`, 'Cetak lagi');
+    if (!ok) return;
+  }
+  // catat nomor yang dicetak supaya tidak dipakai lagi untuk barang lain
+  const add = b.mode === 'diff'
+    ? [[b.flat[0].code, b.flat[b.flat.length - 1].code]]
+    : Array.from(new Set(b.flat.map(c => c.code))).map(c => [c, c]);
+  if (!sSet('labelRanges', JSON.stringify(lbMerge(lbRanges().concat(add))))) toast('Catatan nomor gagal disimpan di browser', true);
+  $('printLabels').innerHTML = sheetsHtml(b.pages, b.cols, b.rows, b.cut, b.tag);
+  if (b.mode === 'diff') $('start').value = lbNextStart();
+  window.print();
+  refresh();
+};
+window.addEventListener('afterprint', () => { $('printLabels').innerHTML = ''; });
+
+// Kalau kamu menambah barang di tab kasir lalu kembali ke tab ini, data diperbarui otomatis.
+window.addEventListener('focus', () => { loadProducts(); renderBanner(); refresh(); });
+window.addEventListener('storage', () => { loadProducts(); renderBanner(); refresh(); });
+
+loadProducts();
+renderBanner();
+$('start').value = lbNextStart();
+{
+  const s = BigInt(lbNextStart());
+  addItem(s.toString(), 5);
+  addItem((s + 1n).toString(), 5);
+}
+refresh();
+</script>
+</body>
+</html>
