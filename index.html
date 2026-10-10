@@ -1389,17 +1389,6 @@
   .pos-cart-table .pt-name { font-size: 16px; font-weight: 700; max-width: none; }
   .pos-cart-table .pt-price-btn { font-size: 15px; font-weight: 700; }
   .pos-cart-table .pt-price-edit { width: 78px; }
-  .pt-disc-info {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px 8px;
-    margin-top: 3px;
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--muted);
-  }
-  .pt-disc-info .pt-orig { text-decoration: line-through; }
-  .pt-disc-info .pt-discount { font-size: 11.5px; }
   .pos-cart-table .pos-qty-ctrl { gap: 6px; }
   .pos-cart-table .pos-qty-ctrl button {
     width: 28px; height: 28px; font-size: 17px; border-radius: 6px;
@@ -1495,6 +1484,111 @@
     .pos-cart-table .pt-name { font-size: 17px; }
     .pos-cart-table .pt-total { font-size: 17px; }
   }
+
+  /* ===== PRODUK: Tambah Massal (tabel isian seperti Excel) ===== */
+  .modal.modal-bulk {
+    width: min(940px, 96vw);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: calc(100vh - 48px);
+  }
+  .modal-bulk h3 { flex: none; }
+  .bulk-hint {
+    flex: none;
+    margin: 0 0 10px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .bulk-scroll {
+    flex: 1;
+    min-height: 180px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--paper);
+  }
+  .bulk-table {
+    width: 100%;
+    min-width: 640px;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 14px;
+  }
+  .bulk-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--paper-dim);
+    color: var(--ink-soft);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    text-align: left;
+    padding: 9px 10px;
+    box-shadow: 0 1px 0 var(--border);
+  }
+  .bulk-table td {
+    padding: 0;
+    border-bottom: 1px solid #E3D9C4;
+    border-right: 1px solid #E3D9C4;
+  }
+  .bulk-table td:last-child { border-right: none; }
+  .bulk-table td.bk-no {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--paper-dim);
+  }
+  .modal-bulk .bulk-table input {
+    width: 100%;
+    padding: 10px 10px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    font-size: 14px;
+  }
+  .modal-bulk .bulk-table input:focus {
+    outline: 2px solid var(--red);
+    outline-offset: -2px;
+    background: #FFF9EC;
+  }
+  .modal-bulk .bulk-table input.bk-price { text-align: right; }
+  .modal-bulk .bulk-table input.bk-err { background: var(--red-dim); }
+  .bulk-table td.bk-st {
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bulk-table tr.bk-ok td.bk-st { color: var(--green); }
+  .bulk-table tr.bk-bad td.bk-st { color: var(--red); }
+  .bulk-table td.bk-x { text-align: center; }
+  .bk-del {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 8px;
+  }
+  .bk-del:hover { color: var(--red); }
+  .bulk-foot {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .bulk-foot .btn { flex: 0 0 auto; padding: 8px 14px; font-size: 13px; }
+  .bulk-summary { font-size: 13px; font-weight: 700; color: var(--ink-soft); text-align: right; }
+  .modal-bulk .modal-actions { flex: none; }
 
   /* ---- Thermal print receipt ---- */
   .print-only { display: none; }
@@ -1710,6 +1804,7 @@
           <option value="price-desc">Harga termahal</option>
         </select>
         <button class="btn btn-primary produk-add-btn" id="produkAddBtn">+ Tambah Barang</button>
+        <button class="btn btn-secondary produk-add-btn" id="produkBulkBtn" title="Tambah banyak barang sekaligus (tampilan seperti Excel)">▦ Tambah Massal</button>
       </div>
       <div id="produkTableWrap"></div>
     </div>
@@ -3322,10 +3417,6 @@
         const row = document.createElement('tr');
         row.dataset.id = c.id;
         const isEditing = editingPriceId === c.id;
-        const discount = (c.origPrice - c.price) * c.qty;
-        const discountInfo = (!isEditing && discount > 0)
-          ? `<div class="pt-disc-info"><span class="pt-orig">${fmtRupiah(c.origPrice)}</span><span class="pt-discount">hemat ${fmtRupiah(discount)}</span></div>`
-          : '';
         const priceCell = isEditing
           ? `<input type="text" inputmode="numeric" class="pt-price-edit mono" id="priceEditInput" value="${c.price.toLocaleString('id-ID')}">
              <button class="pt-price-ok" id="priceEditOk" title="Simpan">✓</button>`
@@ -3334,7 +3425,7 @@
           <td class="pt-name">
             <div class="pt-name-wrap"><span class="pt-name-text">${escapeHtml(c.name)}</span></div>
           </td>
-          <td class="mono pt-price-cell">${priceCell}${discountInfo}</td>
+          <td class="mono pt-price-cell">${priceCell}</td>
           <td>
             <div class="pos-qty-ctrl">
               <button data-act="minus">−</button>
@@ -4111,6 +4202,246 @@
       };
     }
   }
+
+  // ---------- Produk: Tambah Massal (tabel isian seperti Excel) ----------
+  // Kolom: Nama Barang | Barcode | Harga. Barcode boleh kosong.
+  // Enter = pindah ke kolom berikut (di kolom Harga lanjut ke baris baru),
+  // panah ↑/↓ = pindah baris, dan bisa paste langsung dari Excel (beberapa baris & kolom sekaligus).
+  function openBulkAddModal() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal modal-bulk">
+        <h3>Tambah Barang Massal</h3>
+        <p class="bulk-hint">Isi seperti Excel: <b>Enter</b> pindah kolom, <b>↑ ↓</b> pindah baris. Bisa juga <b>paste</b> langsung dari Excel
+          (urutan kolom: Nama Barang, Barcode, Harga). Barcode boleh dikosongkan.</p>
+        <div class="bulk-scroll">
+          <table class="bulk-table">
+            <colgroup>
+              <col style="width:42px"><col><col style="width:190px"><col style="width:140px"><col style="width:190px"><col style="width:40px">
+            </colgroup>
+            <thead><tr><th>#</th><th>Nama Barang</th><th>Barcode</th><th style="text-align:right;">Harga (Rp)</th><th>Status</th><th></th></tr></thead>
+            <tbody id="bulkBody"></tbody>
+          </table>
+        </div>
+        <div class="bulk-foot">
+          <button class="btn btn-secondary" id="bulkAddRows" type="button">+ 10 baris</button>
+          <span class="bulk-summary" id="bulkSummary"></span>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="bulkCancel" type="button">Batal</button>
+          <button class="btn btn-primary" id="bulkSave" type="button">Simpan Semua</button>
+        </div>
+      </div>
+    `;
+    modalRoot.appendChild(overlay);
+
+    const body = overlay.querySelector('#bulkBody');
+    const summaryEl = overlay.querySelector('#bulkSummary');
+    const saveBtn = overlay.querySelector('#bulkSave');
+
+    // Barcode yang sudah ada di daftar barang (dicek sekali saja saat modal dibuka)
+    const existingBarcodes = new Map();
+    products.forEach(p => {
+      const b = (p.barcode || '').trim().toLowerCase();
+      if (b) existingBarcodes.set(b, p);
+    });
+
+    const rows = () => Array.from(body.children);
+    const cellsOf = (tr) => Array.from(tr.querySelectorAll('.bk-in'));
+    const fmtPrice = (n) => (n > 0 ? n.toLocaleString('id-ID') : '');
+    const cleanBarcode = (s) => {
+      s = String(s || '').trim();
+      return /^(-+|0+|nan|null|n\/a|na)$/i.test(s) ? '' : s; // placeholder umum dianggap kosong (sama seperti Import Excel)
+    };
+
+    function makeRow() {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="bk-no"></td>
+        <td><input class="bk-in" data-col="0" type="text" autocomplete="off"></td>
+        <td><input class="bk-in mono" data-col="1" type="text" autocomplete="off"></td>
+        <td><input class="bk-in mono bk-price" data-col="2" type="text" inputmode="numeric" autocomplete="off"></td>
+        <td class="bk-st"></td>
+        <td class="bk-x"><button type="button" class="bk-del" title="Hapus baris">✕</button></td>
+      `;
+      body.appendChild(tr);
+      return tr;
+    }
+    function ensureRow(i) { while (rows().length <= i) makeRow(); }
+    function isFilled(tr) { return cellsOf(tr).some(el => el.value.trim() !== ''); }
+    function focusCell(r, c) {
+      const tr = rows()[r];
+      if (!tr) return;
+      const el = cellsOf(tr)[c];
+      if (!el) return;
+      el.focus();
+      el.select();
+      el.scrollIntoView({ block: 'nearest' });
+    }
+
+    // Cek semua baris. Mengembalikan daftar barang yang valid + jumlah baris bermasalah.
+    function validate() {
+      const seen = new Map(); // barcode -> nomor baris pertama yang memakainya
+      const list = [];
+      let bad = 0, firstBad = -1;
+      rows().forEach((tr, i) => {
+        tr.querySelector('.bk-no').textContent = i + 1;
+        const [nameEl, bcEl, priceEl] = cellsOf(tr);
+        [nameEl, bcEl, priceEl].forEach(el => el.classList.remove('bk-err'));
+        tr.classList.remove('bk-ok', 'bk-bad');
+        const st = tr.querySelector('.bk-st');
+        if (!isFilled(tr)) { st.textContent = ''; st.title = ''; return; }
+
+        const name = nameEl.value.trim();
+        const barcode = cleanBarcode(bcEl.value);
+        const price = parsePriceValue(priceEl.value);
+
+        let bcMsg = '';
+        if (barcode) {
+          const key = barcode.toLowerCase();
+          if (existingBarcodes.has(key)) bcMsg = 'Barcode dipakai: ' + existingBarcodes.get(key).name;
+          else if (seen.has(key)) bcMsg = 'Barcode sama dgn baris ' + seen.get(key);
+          else seen.set(key, i + 1);
+        }
+
+        let msg = '';
+        if (!name) { msg = 'Nama kosong'; nameEl.classList.add('bk-err'); }
+        else if (price <= 0) { msg = 'Harga kosong'; priceEl.classList.add('bk-err'); }
+        else if (bcMsg) { msg = bcMsg; bcEl.classList.add('bk-err'); }
+
+        if (msg) {
+          bad++;
+          if (firstBad < 0) firstBad = i;
+          tr.classList.add('bk-bad');
+          st.textContent = msg;
+          st.title = msg;
+        } else {
+          list.push({ name, barcode, price });
+          tr.classList.add('bk-ok');
+          st.textContent = '✓ Siap';
+          st.title = '';
+        }
+      });
+      summaryEl.textContent = list.length || bad
+        ? `${list.length} barang siap disimpan` + (bad ? ` • ${bad} baris bermasalah` : '')
+        : 'Belum ada yang diisi';
+      saveBtn.disabled = list.length === 0;
+      return { list, bad, firstBad };
+    }
+
+    // Selalu sisakan satu baris kosong di paling bawah (seperti lembar Excel yang terus memanjang)
+    function afterChange() {
+      const trs = rows();
+      if (trs.length === 0 || isFilled(trs[trs.length - 1])) makeRow();
+      validate();
+    }
+
+    for (let i = 0; i < 12; i++) makeRow();
+    validate();
+    setTimeout(() => focusCell(0, 0), 0);
+
+    body.addEventListener('input', (e) => {
+      const el = e.target;
+      if (el.classList.contains('bk-price')) {
+        const raw = el.value.replace(/[^\d]/g, '');
+        el.value = raw ? parseInt(raw, 10).toLocaleString('id-ID') : '';
+      }
+      afterChange();
+    });
+
+    body.addEventListener('keydown', (e) => {
+      const el = e.target;
+      if (!el.classList || !el.classList.contains('bk-in')) return;
+      const r = rows().indexOf(el.closest('tr'));
+      const c = Number(el.dataset.col);
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (c < 2) focusCell(r, c + 1);
+        else { ensureRow(r + 1); focusCell(r + 1, 0); }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        ensureRow(r + 1);
+        focusCell(r + 1, c);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        focusCell(r - 1, c);
+      }
+    });
+
+    // Paste dari Excel: beberapa baris/kolom sekaligus, mulai dari sel yang sedang aktif
+    body.addEventListener('paste', (e) => {
+      const el = e.target;
+      if (!el.classList || !el.classList.contains('bk-in')) return;
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (!text) return;
+      const startR = rows().indexOf(el.closest('tr'));
+      const startC = Number(el.dataset.col);
+      const multi = /[\t\r\n]/.test(text.replace(/[\r\n]+$/, ''));
+      if (!multi) {
+        if (startC !== 2) return; // teks biasa di kolom nama/barcode: biarkan paste normal
+        e.preventDefault();       // kolom harga: baca format Excel ("Rp 3.500", "3,500" dst)
+        el.value = fmtPrice(parsePriceValue(text));
+        afterChange();
+        return;
+      }
+      e.preventDefault();
+      const lines = text.replace(/\r\n?/g, '\n').split('\n');
+      while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+      lines.forEach((line, li) => {
+        ensureRow(startR + li);
+        const ins = cellsOf(rows()[startR + li]);
+        line.split('\t').forEach((val, ci) => {
+          const col = startC + ci;
+          if (col > 2) return;
+          val = val.trim();
+          ins[col].value = col === 2 ? fmtPrice(parsePriceValue(val)) : val;
+        });
+      });
+      afterChange();
+      focusCell(Math.min(startR + lines.length, rows().length - 1), 0);
+    });
+
+    body.addEventListener('click', (e) => {
+      const btn = e.target.closest ? e.target.closest('.bk-del') : null;
+      if (!btn) return;
+      btn.closest('tr').remove();
+      if (rows().length === 0) makeRow();
+      afterChange();
+    });
+
+    overlay.querySelector('#bulkAddRows').onclick = () => {
+      const first = rows().length;
+      for (let i = 0; i < 10; i++) makeRow();
+      validate();
+      focusCell(first, 0);
+    };
+
+    // Overlay sengaja TIDAK menutup modal saat diklik di luar, supaya isian yang banyak tidak hilang tak sengaja.
+    overlay.querySelector('#bulkCancel').onclick = async () => {
+      if (rows().some(isFilled)) {
+        const ok = await showConfirm('Ada isian yang belum disimpan. Tutup dan buang semuanya?', { title: 'Tutup Tambah Massal', confirmText: 'Buang' });
+        if (!ok) return;
+      }
+      overlay.remove();
+    };
+
+    saveBtn.onclick = async () => {
+      const info = validate();
+      if (info.bad) {
+        showToast(`Perbaiki ${info.bad} baris bermasalah dulu (atau kosongkan barisnya)`, 'error');
+        focusCell(info.firstBad, 0);
+        return;
+      }
+      if (!info.list.length) { showToast('Belum ada barang yang diisi', 'error'); return; }
+      info.list.forEach(it => products.push({ id: uid(), name: it.name, price: it.price, barcode: it.barcode }));
+      await saveProducts();
+      renderProdukPage();
+      overlay.remove();
+      showToast(`${info.list.length} barang ditambahkan`);
+    };
+  }
+  document.getElementById('produkBulkBtn').onclick = openBulkAddModal;
 
   // ---------- Toggle Password Toggle Event ----------
   const toggleBtnHome = document.getElementById('togglePasswordHome');
