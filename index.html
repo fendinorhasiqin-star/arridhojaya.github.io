@@ -2920,6 +2920,14 @@
       active.isContentEditable
     );
     if (isTyping) return; // sedang mengetik di kolom lain, biarkan spasi normal
+    if (currentView === 'produk' && produkSearchInput) {
+      // Halaman Produk: Spasi = lompat ke kolom pencarian produk
+      // (abaikan kalau sedang ada popup/modal terbuka)
+      if (modalRoot.children.length > 0) return;
+      e.preventDefault();
+      produkSearchInput.focus();
+      return;
+    }
     if (!searchInput || currentView !== 'home') return;
     e.preventDefault();
     searchInput.focus();
@@ -4167,6 +4175,22 @@
 
     overlay.querySelector('#mCancel').onclick = () => overlay.remove();
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    // Alur Enter: Nama -> Harga -> Barcode -> tombol Tambah/Simpan.
+    // Setelah tombol terfokus, Enter berikutnya menekan tombol itu.
+    const mNameEl = overlay.querySelector('#mName');
+    const mBarcodeEl = overlay.querySelector('#mBarcode');
+    const mSaveBtn = overlay.querySelector('#mSave');
+    mNameEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); priceField.focus(); priceField.select(); }
+    });
+    priceField.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); mBarcodeEl.focus(); mBarcodeEl.select(); }
+    });
+    mBarcodeEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); mSaveBtn.focus(); }
+    });
+    setTimeout(() => mNameEl.focus(), 0);
 
     overlay.querySelector('#mSave').onclick = async () => {
       const name = overlay.querySelector('#mName').value.trim();
