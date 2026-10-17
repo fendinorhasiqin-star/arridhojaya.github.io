@@ -722,6 +722,7 @@
   .search-suggest .ss-item:hover,
   .search-suggest .ss-item.active { background: var(--pos-field); }
   .search-suggest .ss-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .search-suggest .ss-unit { font-weight: 600; color: var(--muted); }
   .search-suggest .ss-barcode { font-size: 11px; color: var(--muted); margin-top: 1px; }
   .search-suggest .ss-price { font-size: 13px; font-weight: 700; color: var(--red); white-space: nowrap; }
   .search-suggest .ss-empty { padding: 10px 12px; font-size: 13px; color: var(--muted); text-align: center; }
@@ -1905,10 +1906,9 @@
 <script>
 (function () {
   let products = [];
-  const DEFAULT_UNIT = 'pcs';
   const COMMON_UNITS = ['pcs','bks','btl','klg','sct','rcg','pak','box','lusin','kodi','dus','crt','karton','bal','sak','slop','kg','gr','ons','ltr','ml','meter'];
   function cleanUnit(u) { return String(u == null ? '' : u).trim().toLowerCase().slice(0, 12); }
-  function unitOf(p) { return cleanUnit(p && p.unit) || DEFAULT_UNIT; }
+  function unitOf(p) { return cleanUnit(p && p.unit); }
   const unitDatalistHtml = '<datalist id="unitList">' + COMMON_UNITS.map(u => `<option value="${u}">`).join('') + '</datalist>';
   let cart = []; // {id, name, price, qty}
   let lastAddedId = null; // id barang terakhir yang ditambahkan ke keranjang (untuk koreksi via Backspace)
@@ -2395,7 +2395,7 @@
               <td class="pt-no mono">${i + 1}</td>
               <td>${escapeHtml(p.name)}</td>
               <td class="mono">${p.barcode ? escapeHtml(p.barcode) : '—'}</td>
-              <td><span class="unit-tag">${escapeHtml(unitOf(p))}</span></td>
+              <td>${unitOf(p) ? `<span class="unit-tag">${escapeHtml(unitOf(p))}</span>` : '<span style="color:var(--muted);">—</span>'}</td>
               <td class="pt-price mono">${fmtRupiah(p.price)}</td>
               <td class="pt-actions">
                 <button class="pt-btn pt-edit" title="Edit">✎</button>
@@ -2524,7 +2524,7 @@
           updated++;
         } else {
           // Barang tanpa barcode tetap ditambahkan selama nama & harga ada.
-          products.push({ id: uid(), name, price, barcode, unit: unitRaw || DEFAULT_UNIT });
+          products.push({ id: uid(), name, price, barcode, unit: unitRaw });
           added++;
         }
       });
@@ -2988,7 +2988,7 @@
       item.dataset.idx = idx;
       item.innerHTML = `
         <div>
-          <div class="ss-name">${escapeHtml(p.name)}</div>
+          <div class="ss-name">${escapeHtml(p.name)}${unitOf(p) ? ` <span class="ss-unit">(${escapeHtml(unitOf(p))})</span>` : ''}</div>
           ${p.barcode ? `<div class="ss-barcode mono">#${escapeHtml(p.barcode)}</div>` : ''}
         </div>
         <div class="ss-price mono">${fmtRupiah(p.price)}</div>
@@ -3212,7 +3212,7 @@
           </div>
           <div>
             <label>Satuan</label>
-            <input id="qaUnit" type="text" list="unitList" maxlength="12" autocomplete="off" value="${DEFAULT_UNIT}">
+            <input id="qaUnit" type="text" list="unitList" maxlength="12" autocomplete="off" value="" placeholder="opsional">
             ${unitDatalistHtml}
           </div>
         </div>
@@ -3275,7 +3275,7 @@
       const price = priceRaw ? parseInt(priceRaw, 10) : 0;
       const qtyVal = parseInt(qtyField.value, 10) || 1;
       const barcode = barcodeField.value.trim();
-      const unit = cleanUnit(overlay.querySelector('#qaUnit').value) || DEFAULT_UNIT;
+      const unit = cleanUnit(overlay.querySelector('#qaUnit').value);
 
       if (!name) { showToast('Nama barang wajib diisi'); nameField.focus(); return; }
       if (price <= 0) { showToast('Harga wajib diisi'); priceField.focus(); return; }
@@ -4181,8 +4181,8 @@
         <input id="mName" type="text" value="${product ? escapeHtml(product.name) : ''}" placeholder="cth. Kopi Sachet">
         <label>Harga (Rp)</label>
         <input id="mPrice" type="text" inputmode="numeric" value="${product ? product.price.toLocaleString('id-ID') : ''}" placeholder="cth. 3000">
-        <label>Satuan</label>
-        <input id="mUnit" type="text" list="unitList" maxlength="12" autocomplete="off" value="${escapeHtml(product ? unitOf(product) : DEFAULT_UNIT)}" placeholder="cth. pcs, dus, kg">
+        <label>Satuan <span style="font-weight:400;color:var(--muted);">(opsional)</span></label>
+        <input id="mUnit" type="text" list="unitList" maxlength="12" autocomplete="off" value="${escapeHtml(product ? unitOf(product) : '')}" placeholder="cth. pcs, dus, kg (boleh kosong)">
         ${unitDatalistHtml}
         <label>Kode Barcode <span style="font-weight:400;color:var(--muted);">(opsional)</span></label>
         <input id="mBarcode" type="text" value="${product && product.barcode ? escapeHtml(product.barcode) : ''}" placeholder="cth. 8991234567890">
@@ -4228,7 +4228,7 @@
       const name = overlay.querySelector('#mName').value.trim();
       const priceRaw = overlay.querySelector('#mPrice').value.replace(/[^\d]/g, '');
       const barcode = overlay.querySelector('#mBarcode').value.trim();
-      const unit = cleanUnit(overlay.querySelector('#mUnit').value) || DEFAULT_UNIT;
+      const unit = cleanUnit(overlay.querySelector('#mUnit').value);
       const price = priceRaw ? parseInt(priceRaw, 10) : 0;
       if (!name) { showToast('Nama barang wajib diisi'); return; }
       if (price <= 0) { showToast('Harga wajib diisi dan tidak boleh Rp 0'); return; }
@@ -4269,7 +4269,7 @@
   }
 
   // ---------- Produk: Tambah Massal (tabel isian seperti Excel) ----------
-  // Kolom: Nama Barang | Barcode | Harga. Barcode boleh kosong.
+  // Kolom: Nama Barang | Barcode | Satuan | Harga. Barcode dan Satuan boleh kosong.
   // Enter = pindah ke kolom berikut (di kolom Harga lanjut ke baris baru),
   // panah ↑/↓ = pindah baris, dan bisa paste langsung dari Excel (beberapa baris & kolom sekaligus).
   function openBulkAddModal() {
@@ -4277,15 +4277,16 @@
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
       <div class="modal modal-bulk">
+        ${unitDatalistHtml}
         <h3>Tambah Barang Massal</h3>
         <p class="bulk-hint">Isi seperti Excel: <b>Enter</b> pindah kolom, <b>↑ ↓</b> pindah baris. Bisa juga <b>paste</b> langsung dari Excel
-          (urutan kolom: Nama Barang, Barcode, Harga). Barcode boleh dikosongkan.</p>
+          (urutan kolom: Nama Barang, Barcode, Satuan, Harga). Barcode dan Satuan boleh dikosongkan.</p>
         <div class="bulk-scroll">
           <table class="bulk-table">
             <colgroup>
-              <col style="width:42px"><col><col style="width:190px"><col style="width:140px"><col style="width:190px"><col style="width:40px">
+              <col style="width:42px"><col><col style="width:170px"><col style="width:100px"><col style="width:130px"><col style="width:190px"><col style="width:40px">
             </colgroup>
-            <thead><tr><th>#</th><th>Nama Barang</th><th>Barcode</th><th style="text-align:right;">Harga (Rp)</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Nama Barang</th><th>Barcode</th><th>Satuan</th><th style="text-align:right;">Harga (Rp)</th><th>Status</th><th></th></tr></thead>
             <tbody id="bulkBody"></tbody>
           </table>
         </div>
@@ -4326,7 +4327,8 @@
         <td class="bk-no"></td>
         <td><input class="bk-in" data-col="0" type="text" autocomplete="off"></td>
         <td><input class="bk-in mono" data-col="1" type="text" autocomplete="off"></td>
-        <td><input class="bk-in mono bk-price" data-col="2" type="text" inputmode="numeric" autocomplete="off"></td>
+        <td><input class="bk-in" data-col="2" type="text" list="unitList" maxlength="12" autocomplete="off"></td>
+        <td><input class="bk-in mono bk-price" data-col="3" type="text" inputmode="numeric" autocomplete="off"></td>
         <td class="bk-st"></td>
         <td class="bk-x"><button type="button" class="bk-del" title="Hapus baris">✕</button></td>
       `;
@@ -4353,14 +4355,15 @@
       let bad = 0, firstBad = -1;
       rows().forEach((tr, i) => {
         tr.querySelector('.bk-no').textContent = i + 1;
-        const [nameEl, bcEl, priceEl] = cellsOf(tr);
-        [nameEl, bcEl, priceEl].forEach(el => el.classList.remove('bk-err'));
+        const [nameEl, bcEl, unitEl, priceEl] = cellsOf(tr);
+        [nameEl, bcEl, unitEl, priceEl].forEach(el => el.classList.remove('bk-err'));
         tr.classList.remove('bk-ok', 'bk-bad');
         const st = tr.querySelector('.bk-st');
         if (!isFilled(tr)) { st.textContent = ''; st.title = ''; return; }
 
         const name = nameEl.value.trim();
         const barcode = cleanBarcode(bcEl.value);
+        const unit = cleanUnit(unitEl.value);
         const price = parsePriceValue(priceEl.value);
 
         let bcMsg = '';
@@ -4383,7 +4386,7 @@
           st.textContent = msg;
           st.title = msg;
         } else {
-          list.push({ name, barcode, price });
+          list.push({ name, barcode, price, unit });
           tr.classList.add('bk-ok');
           if (barcode && /^99\d{8}$/.test(barcode) && !lbInRanges(barcode, lbR)) {
             st.textContent = '✓ Siap (kode 99… belum pernah dicetak)';
@@ -4428,7 +4431,7 @@
       const c = Number(el.dataset.col);
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (c < 2) focusCell(r, c + 1);
+        if (c < 3) focusCell(r, c + 1);
         else { ensureRow(r + 1); focusCell(r + 1, 0); }
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -4450,7 +4453,7 @@
       const startC = Number(el.dataset.col);
       const multi = /[\t\r\n]/.test(text.replace(/[\r\n]+$/, ''));
       if (!multi) {
-        if (startC !== 2) return; // teks biasa di kolom nama/barcode: biarkan paste normal
+        if (startC !== 3) return; // teks biasa di kolom nama/barcode/satuan: biarkan paste normal
         e.preventDefault();       // kolom harga: baca format Excel ("Rp 3.500", "3,500" dst)
         el.value = fmtPrice(parsePriceValue(text));
         afterChange();
@@ -4464,9 +4467,9 @@
         const ins = cellsOf(rows()[startR + li]);
         line.split('\t').forEach((val, ci) => {
           const col = startC + ci;
-          if (col > 2) return;
+          if (col > 3) return;
           val = val.trim();
-          ins[col].value = col === 2 ? fmtPrice(parsePriceValue(val)) : val;
+          ins[col].value = col === 3 ? fmtPrice(parsePriceValue(val)) : (col === 2 ? cleanUnit(val) : val);
         });
       });
       afterChange();
@@ -4505,7 +4508,7 @@
         return;
       }
       if (!info.list.length) { showToast('Belum ada barang yang diisi', 'error'); return; }
-      info.list.forEach(it => products.push({ id: uid(), name: it.name, price: it.price, barcode: it.barcode, unit: DEFAULT_UNIT }));
+      info.list.forEach(it => products.push({ id: uid(), name: it.name, price: it.price, barcode: it.barcode, unit: it.unit || '' }));
       await saveProducts();
       renderProdukPage();
       overlay.remove();
@@ -4704,7 +4707,7 @@
       const ok = await showConfirm('Ganti ' + products.length + ' barang di perangkat ini dengan ' + list.length + ' barang dari Google Sheets?', { title: 'Pulihkan dari Sheets', confirmText: 'Ganti' });
       if (!ok) return;
       gsSuppress = true;
-      products = list.map(p => ({ id: p.id || uid(), name: p.name, price: p.price, barcode: p.barcode || '', unit: cleanUnit(p.unit) || DEFAULT_UNIT }));
+      products = list.map(p => ({ id: p.id || uid(), name: p.name, price: p.price, barcode: p.barcode || '', unit: cleanUnit(p.unit) }));
       await saveProducts();
       gsSuppress = false;
       const c = gsCfg(); c.lastCount = list.length; c.dirty = false; c.hold = ''; c.error = ''; gsSaveCfg(c);
