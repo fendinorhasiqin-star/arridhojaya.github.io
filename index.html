@@ -492,7 +492,7 @@
   }
   .quickadd-row {
     display: grid;
-    grid-template-columns: 1fr 84px;
+    grid-template-columns: 1fr 72px 84px;
     gap: 10px;
   }
   .quickadd-row > div { min-width: 0; }
@@ -1593,6 +1593,12 @@
   .bulk-summary { font-size: 13px; font-weight: 700; color: var(--ink-soft); text-align: right; }
   .modal-bulk .modal-actions { flex: none; }
 
+  /* ---- Satuan barang ---- */
+  .unit-tag { display:inline-block; font-size:11px; font-weight:700; color:var(--muted); background:var(--paper-dim); border-radius:4px; padding:1px 6px; text-transform:lowercase; }
+  .pos-cart-table .th-unit { width: 76px; }
+  .pos-cart-table .pt-unit-cell { text-align: center; }
+  .pos-cart-table .pt-unit-cell .unit-tag { font-size: 13px; padding: 2px 8px; }
+
   /* ---- Thermal print receipt ---- */
   .print-only { display: none; }
   #printReceipt {
@@ -1713,6 +1719,7 @@
                     <th>Nama Barang</th>
                     <th class="th-price">Harga</th>
                     <th class="th-qty">Qty</th>
+                    <th class="th-unit">Satuan</th>
                     <th class="th-total">Total</th>
                     <th class="th-del"></th>
                   </tr>
@@ -1898,6 +1905,11 @@
 <script>
 (function () {
   let products = [];
+  const DEFAULT_UNIT = 'pcs';
+  const COMMON_UNITS = ['pcs','bks','btl','klg','sct','rcg','pak','box','lusin','kodi','dus','crt','karton','bal','sak','slop','kg','gr','ons','ltr','ml','meter'];
+  function cleanUnit(u) { return String(u == null ? '' : u).trim().toLowerCase().slice(0, 12); }
+  function unitOf(p) { return cleanUnit(p && p.unit) || DEFAULT_UNIT; }
+  const unitDatalistHtml = '<datalist id="unitList">' + COMMON_UNITS.map(u => `<option value="${u}">`).join('') + '</datalist>';
   let cart = []; // {id, name, price, qty}
   let lastAddedId = null; // id barang terakhir yang ditambahkan ke keranjang (untuk koreksi via Backspace)
   let searchTerm = "";
@@ -2376,13 +2388,14 @@
     }
     produkTableWrap.innerHTML = countHtml + `
       <table class="produk-table">
-        <thead><tr><th class="pt-no">No</th><th>Nama Barang</th><th>Barcode</th><th>Harga</th><th></th></tr></thead>
+        <thead><tr><th class="pt-no">No</th><th>Nama Barang</th><th>Barcode</th><th>Satuan</th><th>Harga</th><th></th></tr></thead>
         <tbody>
           ${list.map((p, i) => `
             <tr data-id="${p.id}">
               <td class="pt-no mono">${i + 1}</td>
               <td>${escapeHtml(p.name)}</td>
               <td class="mono">${p.barcode ? escapeHtml(p.barcode) : '—'}</td>
+              <td><span class="unit-tag">${escapeHtml(unitOf(p))}</span></td>
               <td class="pt-price mono">${fmtRupiah(p.price)}</td>
               <td class="pt-actions">
                 <button class="pt-btn pt-edit" title="Edit">✎</button>
@@ -2437,10 +2450,11 @@
     const rows = products.map(p => ({
       'Nama Barang': p.name,
       'Barcode': p.barcode || '',
+      'Satuan': unitOf(p),
       'Harga': p.price,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 32 }, { wch: 18 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 32 }, { wch: 18 }, { wch: 10 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Barang');
     const storeName = (document.getElementById('tokoName').textContent || 'Toko').trim().replace(/\s+/g, '_');
@@ -2485,6 +2499,8 @@
         let barcode = String(row['Barcode'] ?? row['barcode'] ?? row['Kode Barcode'] ?? row['kode barcode'] ?? '').trim();
         if (/^(-+|0+|nan|null|n\/a|na)$/i.test(barcode)) barcode = '';
 
+        const unitRaw = cleanUnit(row['Satuan'] ?? row['satuan'] ?? row['Unit'] ?? row['unit'] ?? '');
+
         // Harga: buang semua karakter selain angka (menangani "Rp 3.500", "3,500", dsb), dan abaikan baris yang memang kosong total.
         const priceRawCell = row['Harga'] ?? row['harga'] ?? row['Price'] ?? row['price'] ?? '';
         const priceRawStr = String(priceRawCell).trim();
@@ -2504,10 +2520,11 @@
           existing.name = name;
           existing.price = price;
           if (barcode) existing.barcode = barcode;
+          if (unitRaw) existing.unit = unitRaw;
           updated++;
         } else {
           // Barang tanpa barcode tetap ditambahkan selama nama & harga ada.
-          products.push({ id: uid(), name, price, barcode });
+          products.push({ id: uid(), name, price, barcode, unit: unitRaw || DEFAULT_UNIT });
           added++;
         }
       });
@@ -3193,6 +3210,11 @@
             <label>Qty</label>
             <input id="qaQty" type="text" inputmode="numeric" value="${qty || 1}">
           </div>
+          <div>
+            <label>Satuan</label>
+            <input id="qaUnit" type="text" list="unitList" maxlength="12" autocomplete="off" value="${DEFAULT_UNIT}">
+            ${unitDatalistHtml}
+          </div>
         </div>
         <label>Kode Barcode <span style="font-weight:400;color:var(--muted);">(opsional)</span></label>
         <input id="qaBarcode" type="text" value="${escapeHtml(initialBarcode)}" placeholder="cth. 8991234567890">
@@ -3253,6 +3275,7 @@
       const price = priceRaw ? parseInt(priceRaw, 10) : 0;
       const qtyVal = parseInt(qtyField.value, 10) || 1;
       const barcode = barcodeField.value.trim();
+      const unit = cleanUnit(overlay.querySelector('#qaUnit').value) || DEFAULT_UNIT;
 
       if (!name) { showToast('Nama barang wajib diisi'); nameField.focus(); return; }
       if (price <= 0) { showToast('Harga wajib diisi'); priceField.focus(); return; }
@@ -3264,13 +3287,13 @@
 
       let productForCart;
       if (saveCatalogChk.checked) {
-        const newProduct = { id: uid(), name, price, barcode };
+        const newProduct = { id: uid(), name, price, barcode, unit };
         products.push(newProduct);
         await saveProducts();
         renderProdukPage();
         productForCart = newProduct;
       } else {
-        productForCart = { id: uid(), name, price, barcode };
+        productForCart = { id: uid(), name, price, barcode, unit };
       }
 
       addToCart(productForCart, qtyVal);
@@ -3336,7 +3359,7 @@
     if (!qty || qty < 1) qty = 1;
     const existing = cart.find(c => c.id === p.id);
     if (existing) existing.qty += qty;
-    else cart.push({ id: p.id, name: p.name, price: p.price, origPrice: p.price, qty, barcode: p.barcode || '' });
+    else cart.push({ id: p.id, name: p.name, price: p.price, origPrice: p.price, qty, barcode: p.barcode || '', unit: unitOf(p) });
     lastAddedId = p.id;
     playScanBeep();
     renderCart();
@@ -3427,7 +3450,7 @@
     const keepScroll = scrollBox ? scrollBox.scrollTop : 0;
     cartListEl.innerHTML = '';
     if (cart.length === 0) {
-      cartListEl.innerHTML = '<tr><td colspan="5" class="pos-empty-row">Belum ada barang. Scan barcode atau cari nama barang di atas.</td></tr>';
+      cartListEl.innerHTML = '<tr><td colspan="6" class="pos-empty-row">Belum ada barang. Scan barcode atau cari nama barang di atas.</td></tr>';
     } else {
       cart.forEach((c, idx) => {
         const row = document.createElement('tr');
@@ -3449,6 +3472,7 @@
               <button data-act="plus">+</button>
             </div>
           </td>
+          <td class="pt-unit-cell">${c.unit ? `<span class="unit-tag">${escapeHtml(c.unit)}</span>` : '—'}</td>
           <td class="pt-total mono">${fmtRupiah(c.price * c.qty)}</td>
           <td>
             <div class="pt-actions">
@@ -3827,7 +3851,7 @@
       <div class="pr-item">
         <div class="pi-name">${escapeHtml(c.name)}</div>
         <div class="pi-sub">
-          <span>${c.qty} x ${fmtRupiah(c.price)}</span>
+          <span>${c.qty}${c.unit ? ' ' + escapeHtml(c.unit) : ''} x ${fmtRupiah(c.price)}</span>
           <span>${fmtRupiah(c.price * c.qty)}</span>
         </div>
       </div>
@@ -3949,7 +3973,7 @@
         <div class="hist-items">
           ${items.map(i => `
             <div class="hist-item-row">
-              <span>${escapeHtml(i.name)} x${i.qty}</span>
+              <span>${escapeHtml(i.name)} x${i.qty}${i.unit ? ' ' + escapeHtml(i.unit) : ''}</span>
               <span class="mono">${fmtRupiah(i.price * i.qty)}</span>
             </div>
           `).join('')}
@@ -4036,7 +4060,8 @@
           price: i.price,
           origPrice: (i.origPrice !== undefined ? i.origPrice : i.price),
           qty: i.qty,
-          barcode: i.barcode || ''
+          barcode: i.barcode || '',
+          unit: i.unit || ''
         }))
       : [];
 
@@ -4156,6 +4181,9 @@
         <input id="mName" type="text" value="${product ? escapeHtml(product.name) : ''}" placeholder="cth. Kopi Sachet">
         <label>Harga (Rp)</label>
         <input id="mPrice" type="text" inputmode="numeric" value="${product ? product.price.toLocaleString('id-ID') : ''}" placeholder="cth. 3000">
+        <label>Satuan</label>
+        <input id="mUnit" type="text" list="unitList" maxlength="12" autocomplete="off" value="${escapeHtml(product ? unitOf(product) : DEFAULT_UNIT)}" placeholder="cth. pcs, dus, kg">
+        ${unitDatalistHtml}
         <label>Kode Barcode <span style="font-weight:400;color:var(--muted);">(opsional)</span></label>
         <input id="mBarcode" type="text" value="${product && product.barcode ? escapeHtml(product.barcode) : ''}" placeholder="cth. 8991234567890">
         <div class="modal-actions">
@@ -4180,11 +4208,15 @@
     // Setelah tombol terfokus, Enter berikutnya menekan tombol itu.
     const mNameEl = overlay.querySelector('#mName');
     const mBarcodeEl = overlay.querySelector('#mBarcode');
+    const mUnitEl = overlay.querySelector('#mUnit');
     const mSaveBtn = overlay.querySelector('#mSave');
     mNameEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); priceField.focus(); priceField.select(); }
     });
     priceField.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); mUnitEl.focus(); mUnitEl.select(); }
+    });
+    mUnitEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); mBarcodeEl.focus(); mBarcodeEl.select(); }
     });
     mBarcodeEl.addEventListener('keydown', (e) => {
@@ -4196,6 +4228,7 @@
       const name = overlay.querySelector('#mName').value.trim();
       const priceRaw = overlay.querySelector('#mPrice').value.replace(/[^\d]/g, '');
       const barcode = overlay.querySelector('#mBarcode').value.trim();
+      const unit = cleanUnit(overlay.querySelector('#mUnit').value) || DEFAULT_UNIT;
       const price = priceRaw ? parseInt(priceRaw, 10) : 0;
       if (!name) { showToast('Nama barang wajib diisi'); return; }
       if (price <= 0) { showToast('Harga wajib diisi dan tidak boleh Rp 0'); return; }
@@ -4214,9 +4247,9 @@
 
       if (product) {
         const idx = products.findIndex(p => p.id === product.id);
-        products[idx] = { ...products[idx], name, price, barcode };
+        products[idx] = { ...products[idx], name, price, barcode, unit };
       } else {
-        products.push({ id: uid(), name, price, barcode });
+        products.push({ id: uid(), name, price, barcode, unit });
       }
       await saveProducts();
       renderProdukPage();
@@ -4472,7 +4505,7 @@
         return;
       }
       if (!info.list.length) { showToast('Belum ada barang yang diisi', 'error'); return; }
-      info.list.forEach(it => products.push({ id: uid(), name: it.name, price: it.price, barcode: it.barcode }));
+      info.list.forEach(it => products.push({ id: uid(), name: it.name, price: it.price, barcode: it.barcode, unit: DEFAULT_UNIT }));
       await saveProducts();
       renderProdukPage();
       overlay.remove();
@@ -4644,7 +4677,7 @@
     try {
       const r = await gsPost({
         action: 'backup', force: !!force,
-        products: products.map(p => ({ id: p.id, name: p.name, barcode: p.barcode || '', price: p.price }))
+        products: products.map(p => ({ id: p.id, name: p.name, barcode: p.barcode || '', price: p.price, unit: unitOf(p) }))
       });
       if (!r.ok) throw new Error(r.error || 'Gagal');
       const c = gsCfg();
@@ -4671,7 +4704,7 @@
       const ok = await showConfirm('Ganti ' + products.length + ' barang di perangkat ini dengan ' + list.length + ' barang dari Google Sheets?', { title: 'Pulihkan dari Sheets', confirmText: 'Ganti' });
       if (!ok) return;
       gsSuppress = true;
-      products = list.map(p => ({ id: p.id || uid(), name: p.name, price: p.price, barcode: p.barcode || '' }));
+      products = list.map(p => ({ id: p.id || uid(), name: p.name, price: p.price, barcode: p.barcode || '', unit: cleanUnit(p.unit) || DEFAULT_UNIT }));
       await saveProducts();
       gsSuppress = false;
       const c = gsCfg(); c.lastCount = list.length; c.dirty = false; c.hold = ''; c.error = ''; gsSaveCfg(c);
