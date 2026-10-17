@@ -4484,6 +4484,14 @@
   // ---------- Produk: Cetak Label (halaman terpisah: label.html, satu folder dengan index.html) ----------
   // label.html membaca data barang yang sama dari browser dan mencatat nomor yang sudah dicetak di 'labelRanges'.
   document.getElementById('produkLabelBtn').onclick = () => { window.open('label.html', '_blank'); };
+  // label.html bisa menulis barcode baru / barang baru ke data produk dari tab lain.
+  // Muat ulang di sini supaya data di memori kasir tidak menimpanya saat kasir menyimpan.
+  window.addEventListener('storage', async (e) => {
+    if (e.key !== STORAGE_PREFIX + 'products') return;
+    await loadProducts();
+    if (currentView === 'produk') renderProdukPage();
+    gsMarkDirty();   // jadwalkan backup Google Sheets untuk perubahan ini
+  });
   // Nomor label yang pernah dicetak, dipakai untuk memberi petunjuk di Tambah Massal.
   function lbRanges() {
     try {
