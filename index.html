@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <script>
-  if (window.matchMedia('(max-width: 700px)').matches && !location.search.includes('desktop')) {
-    location.replace('mobile.html');
-  }
+<script>
+  (function () {
+    var isPhone = /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent) ||
+                  Math.min(screen.width, screen.height) <= 600;
+    if (isPhone && !location.search.includes('desktop')) {
+      location.replace('mobile.html');
+    }
+  })();
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
