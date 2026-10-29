@@ -4825,8 +4825,12 @@
     }
   }
   window.addEventListener('online', () => { if (gsConfigured()) gsSync(); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && gsConfigured()) gsSync(); });
-  setInterval(() => { if (!document.hidden && gsConfigured()) gsSync(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && gsConfigured()) { psAct = Date.now(); gsSync(); } });
+  // Hemat panggilan: polling berhenti kalau tidak ada sentuhan/ketikan 10 menit; sentuh lagi = langsung sinkron.
+  var psAct = Date.now(), psIdleMs = 10 * 60 * 1000;
+  function psTouch() { const was = Date.now() - psAct > psIdleMs; psAct = Date.now(); if (was && gsConfigured()) gsSync(); }
+  ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.addEventListener(ev, psTouch, { passive: true, capture: true }));
+  setInterval(() => { if (!document.hidden && gsConfigured() && Date.now() - psAct < psIdleMs) gsSync(); }, 60000);
   setTimeout(() => { if (gsConfigured()) gsSync(); }, 2500);
 
   function openGsModal() {
