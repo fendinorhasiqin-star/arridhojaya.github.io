@@ -227,6 +227,11 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
         <option value="bt">Bluetooth langsung (printer thermal)</option>
         <option value="system">Menu cetak HP</option>
       </select>
+      <label class="l">Alamat, tanggal, kasir (Bluetooth)</label>
+      <select class="inp" id="sHdr">
+        <option value="img">Kecil (hemat kertas)</option>
+        <option value="normal">Normal (teks printer)</option>
+      </select>
       <button class="btn ghost full" id="sBtPair" type="button">Hubungkan / Ganti Printer</button>
       <button class="btn ghost full" id="sBtTest" type="button">Cetak Tes</button>
       <p class="hint" id="sBtInfo"></p>
@@ -263,7 +268,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   const digits = s => String(s || '').replace(/\D/g, '');
   const num = s => parseInt(digits(s), 10) || 0;
   function getJ(k, def) { try { const r = localStorage.getItem(P + k); return r ? JSON.parse(r) : def; } catch (e) { return def; } }
-  function setJ(k, v) { try { localStorage.setItem(P + k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function setJ(k, v) { try { if (k.indexOf('history:') === 0) hsTrack(k.slice(8), JSON.stringify(v)); localStorage.setItem(P + k, JSON.stringify(v)); return true; } catch (e) { return false; } }
   function getRaw(k) { try { return localStorage.getItem(P + k); } catch (e) { return null; } }
   function setRaw(k, v) { try { localStorage.setItem(P + k, v); return true; } catch (e) { return false; } }
   function dateKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -348,7 +353,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
     const t = st.at ? new Date(st.at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
     return 'Backup otomatis aktif. Terakhir sinkron: ' + t + ' (' + st.base + ' barang)' + (st.pending ? ' — ada perubahan menunggu dikirim' : '') + '.';
   }
-  function gsRefreshStatus() { const el = document.getElementById('gStatus'); if (el) el.textContent = gsStatusText(); }
+  function gsRefreshStatus() { const el = document.getElementById('gStatus'); if (el) el.textContent = gsStatusText() + hsStatusSuffix(); }
   function autoBackupSoon() {
     if (abSkip) return;
     const c = gsCfg(); if (!c.url || !c.token) return;
@@ -388,6 +393,128 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   }
   window.addEventListener('online', () => { if (getJ('gsync', {}).pending) runAutoBackup(); });
   setTimeout(() => { if (getJ('gsync', {}).pending) runAutoBackup(); }, 4000);
+
+  // ===== Sinkron Riwayat Transaksi ke Google Sheets =====
+  // Aman untuk banyak perangkat: transaksi hanya DITAMBAH / DIBATALKAN berdasarkan ID, tidak pernah menimpa seluruh data.
+  // Urutan tiap sinkron: ambil dari Sheets lalu gabung ke perangkat ini, baru kirim perubahan lokal.
+  var HS_PREFIX = 'kasirArridho:', hsTimer = null, hsBusy = false, hsSuppress = false, hsLastRun = 0;
+  function hsGet() { try { return JSON.parse(localStorage.getItem(HS_PREFIX + 'ghist') || '{}') || {}; } catch (e) { return {}; } }
+  function hsSave(st) { try { localStorage.setItem(HS_PREFIX + 'ghist', JSON.stringify(st)); } catch (e) {} }
+  function hsConfigured() { const c = gsCfg(); return !!(c.url && c.token); }
+  function hsIds(raw) { try { return (JSON.parse(raw || '[]') || []).map(r => r && r.id).filter(Boolean); } catch (e) { return []; } }
+  function hsList(d) { try { return JSON.parse(localStorage.getItem(HS_PREFIX + 'history:' + d) || '[]') || []; } catch (e) { return []; } }
+  function hsWrite(d, list) { hsSuppress = true; try { localStorage.setItem(HS_PREFIX + 'history:' + d, JSON.stringify(list)); } finally { hsSuppress = false; } }
+  function hsAllDates() {
+    const set = [];
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(HS_PREFIX + 'history:') === 0) set.push(k.slice((HS_PREFIX + 'history:').length)); } } catch (e) {}
+    return set.sort();
+  }
+  function hsSinceKey() {
+    const d = new Date(Date.now() - 120 * 86400000);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  async function hsPost(payload) {
+    const c = gsCfg();
+    const res = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ token: c.token }, payload)) });
+    return await res.json();
+  }
+  function hsSchedule(ms) { clearTimeout(hsTimer); hsTimer = setTimeout(() => hsSync(), ms); }
+  // Dipanggil sebelum menulis 'history:<tanggal>': catat tanggal yang berubah dan transaksi yang terhapus
+  function hsTrack(dateKey, newRaw) {
+    if (hsSuppress || !hsConfigured()) return;
+    try {
+      const st = hsGet(); st.dirty = st.dirty || []; st.tomb = st.tomb || []; st.v = (st.v || 0) + 1;
+      const newSet = new Set(hsIds(newRaw));
+      hsIds(localStorage.getItem(HS_PREFIX + 'history:' + dateKey)).forEach(id => {
+        if (!newSet.has(id) && !st.tomb.some(t => t.id === id)) st.tomb.push({ id: id, date: dateKey });
+      });
+      if (st.dirty.indexOf(dateKey) === -1) st.dirty.push(dateKey);
+      hsSave(st);
+    } catch (e) {}
+    hsSchedule(5000);
+  }
+  // Transaksi lama yang belum punya ID diberi ID supaya bisa disinkronkan
+  function hsEnsureIds() {
+    let any = false;
+    hsAllDates().forEach(d => {
+      const list = hsList(d); let ch = false;
+      list.forEach((r, i) => { if (r && !r.id) { r.id = 'lama' + d.replace(/-/g, '') + String(list.length - i).padStart(4, '0'); ch = true; } });
+      if (ch) { hsWrite(d, list); any = true; }
+    });
+    return any;
+  }
+  // Gabungkan data dari Sheets: tambah yang belum ada, hapus yang berstatus batal
+  function hsMerge(records) {
+    const st = hsGet(); const tomb = new Set((st.tomb || []).map(t => t.id));
+    const byDate = {};
+    records.forEach(r => { (byDate[r.date] = byDate[r.date] || []).push(r); });
+    const changedDates = [];
+    Object.keys(byDate).forEach(d => {
+      let list = hsList(d); let ch = false;
+      const have = new Set(list.map(r => r && r.id));
+      byDate[d].forEach(r => {
+        if (r.status === 'batal') {
+          if (have.has(r.id)) { list = list.filter(x => !(x && x.id === r.id)); have.delete(r.id); ch = true; }
+        } else if (r.rec && !have.has(r.id) && !tomb.has(r.id)) {
+          let i = 0; while (i < list.length && String((list[i] && list[i].id) || '') > String(r.id)) i++;   // terbaru di atas
+          list.splice(i, 0, r.rec); have.add(r.id); ch = true;
+        }
+      });
+      if (ch) { hsWrite(d, list); changedDates.push(d); }
+    });
+    return changedDates;
+  }
+  async function hsSync() {
+    if (hsBusy || !hsConfigured() || !navigator.onLine) return;
+    hsBusy = true; hsLastRun = Date.now();
+    let touched = false;
+    try {
+      let st = hsGet();
+      if (!st.init) { if (hsEnsureIds()) touched = true; st.dirty = hsAllDates(); st.init = true; st.v = (st.v || 0) + 1; hsSave(st); }   // impor awal semua riwayat lokal
+      // 1) ambil dari Sheets, gabung
+      const pr = await hsPost({ action: 'pullHistory', since: st.init && st.last ? hsSinceKey() : '' });
+      if (!pr.ok) throw new Error(pr.error || 'Gagal');
+      if (hsMerge(pr.records || []).length) touched = true;
+      // 2) kirim perubahan lokal
+      st = hsGet();
+      const vStart = st.v || 0, dates = (st.dirty || []).slice(), tombs = (st.tomb || []).slice();
+      const recs = [];
+      dates.forEach(d => hsList(d).forEach(r => { if (r && r.id) recs.push({ date: d, rec: r }); }));
+      const sentTomb = [];
+      if (recs.length || tombs.length) {
+        for (let i = 0, first = true; first || i < recs.length; i += 150, first = false) {
+          const r = await hsPost({ action: 'pushHistory', records: recs.slice(i, i + 150), deleted: first ? tombs : [] });
+          if (!r.ok) throw new Error(r.error || 'Gagal');
+          if (first) tombs.forEach(t => sentTomb.push(t.id));
+        }
+      }
+      st = hsGet();
+      st.tomb = (st.tomb || []).filter(t => sentTomb.indexOf(t.id) === -1);
+      if ((st.v || 0) === vStart) st.dirty = [];   // kalau ada perubahan baru saat mengirim, tanggalnya dikirim ulang (aman: ID yang sama dilewati server)
+      st.last = Date.now(); st.err = ''; hsSave(st);
+    } catch (e) {
+      const st = hsGet(); st.err = String((e && e.message) || e).slice(0, 80); hsSave(st);
+      hsSchedule(2 * 60 * 1000);
+    } finally {
+      hsBusy = false;
+      if (touched) { try { hsAfterMerge(); } catch (e) {} }
+      try { hsAfterSync(); } catch (e) {}
+    }
+  }
+  function hsStatusSuffix() {
+    if (!hsConfigured()) return '';
+    const st = hsGet();
+    if (st.err) return ' • ⚠ Riwayat: ' + st.err;
+    if (st.last) { const d = new Date(st.last); return ' • Riwayat sinkron ' + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ((st.dirty && st.dirty.length) || (st.tomb && st.tomb.length) ? ' (ada yang menunggu)' : ''); }
+    return ' • Riwayat belum sinkron';
+  }
+  window.addEventListener('online', () => hsSchedule(1500));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - hsLastRun > 20000) hsSchedule(800); });
+  setInterval(() => { if (!document.hidden) hsSync(); }, 3 * 60 * 1000);
+
+  function hsAfterMerge() { if (view === 'riwayat') renderRiwayat(); }
+  function hsAfterSync() { gsRefreshStatus(); }
+  setTimeout(() => hsSchedule(0), 6000);
   const saveHutang = () => setJ('hutang', hutang);
 
   // Sinkron kalau tab/jendela lain mengubah data di browser yang sama
@@ -404,7 +531,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
     updateCartBar();
     window.scrollTo(0, 0);
     if (v === 'produk') renderProduk();
-    if (v === 'riwayat') renderRiwayat();
+    if (v === 'riwayat') { renderRiwayat(); hsSchedule(300); }
     if (v === 'hutang') renderHutang();
     if (v === 'setelan') renderSetelan();
   }
@@ -646,7 +773,6 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   // ===== Cetak Bluetooth langsung (ESC/POS via Web Bluetooth) =====
   const BT_SERVICES = [0x18f0, 0xff00, 0xffe0, 0xffe5, 0xfee7, 0xffb0, 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455'];
   const W = 32; // lebar kertas 58mm = 32 karakter (Font A)
-  const WS = 42; // Font B (kecil) = 42 karakter
   let btDev = null, btChar = null;
   const btSupported = () => !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
   const printMode = () => getRaw('printMode') || (btSupported() ? 'bt' : 'system');
@@ -666,6 +792,44 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       if (c) { btChar = c; return c; }
     }
     throw new Error('Printer ini tidak mendukung Bluetooth LE (kemungkinan tipe Bluetooth klasik)');
+  }
+
+  // Cetak teks kecil sebagai gambar 1-bit (perintah GS v 0), lebar 384 titik = kertas 58mm
+  function rasterLines(texts) {
+    const WPX = 384, FS = 15, LH = 18;
+    const cv = document.createElement('canvas'); cv.width = WPX;
+    const ctx = cv.getContext('2d'); if (!ctx) return null;
+    const font = FS + 'px "Courier New", Consolas, monospace';
+    ctx.font = font;
+    const lines = [];
+    texts.forEach(t => {
+      let cur = '';
+      String(t).split(/\s+/).filter(Boolean).forEach(w => {
+        const test = cur ? cur + ' ' + w : w;
+        if (ctx.measureText(test).width <= WPX - 8) cur = test; else { if (cur) lines.push(cur); cur = w; }
+      });
+      if (cur) lines.push(cur);
+    });
+    if (!lines.length) return [];
+    const H = lines.length * LH + 4;
+    cv.height = H; ctx.font = font;                       // ubah ukuran canvas mereset konteks
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, WPX, H);
+    ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    lines.forEach((l, i) => ctx.fillText(l, WPX / 2, 2 + i * LH));
+    const img = ctx.getImageData(0, 0, WPX, H).data, bpr = WPX / 8, res = [];
+    for (let y0 = 0; y0 < H; y0 += 200) {
+      const h = Math.min(200, H - y0);
+      res.push(0x1D, 0x76, 0x30, 0x00, bpr & 255, bpr >> 8, h & 255, h >> 8);
+      for (let y = y0; y < y0 + h; y++) for (let bx = 0; bx < bpr; bx++) {
+        let byte = 0;
+        for (let bit = 0; bit < 8; bit++) {
+          const i = (y * WPX + bx * 8 + bit) * 4;
+          if ((img[i] + img[i + 1] + img[i + 2]) / 3 < 150) byte |= 0x80 >> bit;
+        }
+        res.push(byte);
+      }
+    }
+    return res;
   }
 
   function btBytes(rec) {
@@ -689,14 +853,18 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
 
     push(0x1B, 0x40);                                   // reset printer
     center(); bold(true); wrap(String(settings.name).toUpperCase()).forEach(line); bold(false);
-    // Alamat, tanggal, kasir: font kecil (Font B, 42 karakter per baris) agar hemat ruang
-    push(0x1B, 0x4D, 1);
-    wrap(String(settings.address).replace(/\n/g, ' '), WS).forEach(line);
-    const tgl = (rec.dateLabel || '') + '  ' + (rec.time || '');
-    const ksr = rec.kasir ? 'Kasir: ' + rec.kasir : '';
-    if (ksr && (tgl + '  ' + ksr).length <= WS) line(tgl + '  ' + ksr);
-    else { line(tgl); if (ksr) wrap(ksr, WS).forEach(line); }
-    push(0x1B, 0x4D, 0);
+    // Alamat, tanggal, kasir: bisa dicetak kecil sebagai gambar (cocok di semua printer thermal) atau teks normal
+    const addr = String(settings.address).replace(/\n/g, ' ');
+    const tgl = (rec.dateLabel || '') + '  ' + (rec.time || '') + (rec.kasir ? '  -  Kasir: ' + rec.kasir : '');
+    let didImg = false;
+    if ((getRaw('hdrMode') || 'img') === 'img') {
+      try { const r = rasterLines([addr, tgl]); if (r) { r.forEach(x => out.push(x)); didImg = true; } } catch (e) { didImg = false; }
+    }
+    if (!didImg) {
+      wrap(addr).forEach(line);
+      line((rec.dateLabel || '') + '  ' + (rec.time || ''));
+      if (rec.kasir) line('Kasir: ' + rec.kasir);
+    }
     left(); line(rule);
     items.forEach(c => {
       wrap(c.name).forEach(line);
@@ -1051,7 +1219,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   function renderSetelan() {
     $('#sNama').value = settings.name; $('#sAlamat').value = settings.address; $('#sKasir').value = kasirName;
     const g = gsCfg(); $('#gUrl').value = g.url || ''; $('#gToken').value = g.token || '';
-    $('#sPrintMode').value = printMode(); gsRefreshStatus();
+    $('#sPrintMode').value = printMode(); $('#sHdr').value = getRaw('hdrMode') || 'img'; gsRefreshStatus();
     $('#sBtInfo').textContent = btSupported()
       ? 'Nyalakan printer dan Bluetooth HP, lalu tekan "Hubungkan" dan pilih printer (jangan dipasangkan lewat menu Bluetooth bawaan HP jika tidak muncul di daftar).'
       : 'Browser ini tidak mendukung Bluetooth langsung. Gunakan Chrome di Android dengan halaman HTTPS, atau pakai "Menu cetak HP".';
@@ -1081,6 +1249,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   };
 
   $('#sPrintMode').addEventListener('change', e => { setRaw('printMode', e.target.value); toast('Metode cetak disimpan'); });
+  $('#sHdr').addEventListener('change', e => { setRaw('hdrMode', e.target.value); toast('Ukuran teks struk disimpan'); });
   $('#sBtPair').onclick = async () => {
     if (!btSupported()) { toast('Browser ini tidak mendukung Bluetooth langsung', 'err'); return; }
     btDev = null; btChar = null;
