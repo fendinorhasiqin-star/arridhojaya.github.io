@@ -351,10 +351,10 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   var abTimer = null, abBusy = false, abSkip = false, abVer = 0;
   function gsStatusText() {
     const c = gsCfg(), st = getJ('gsync', {});
-    if (!c.url || !c.token) return 'Backup otomatis belum aktif: isi URL dan token dulu.';
-    if (!st.at) return 'Backup otomatis aktif. Akan mulai mengirim saat ada perubahan barang.';
+    if (!c.url || !c.token) return 'Sinkron otomatis belum aktif: isi URL dan token dulu.';
+    if (!st.at) return 'Sinkron otomatis aktif. Barang akan tersinkron dengan perangkat lain tiap beberapa detik.';
     const t = st.at ? new Date(st.at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
-    return 'Backup otomatis aktif. Terakhir sinkron: ' + t + ' (' + st.base + ' barang)' + (st.pending ? ' — ada perubahan menunggu dikirim' : '') + '.';
+    return 'Sinkron otomatis aktif. Terakhir sinkron: ' + t + ' (' + st.base + ' barang)' + (st.pending ? ' — ada perubahan menunggu dikirim' : '') + '.';
   }
   function gsRefreshStatus() { const el = document.getElementById('gStatus'); if (el) el.textContent = gsStatusText() + hsStatusSuffix(); }
   function autoBackupSoon() {
@@ -364,38 +364,66 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
     clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 3000);
     gsRefreshStatus();
   }
-  async function runAutoBackup() {
-    if (abBusy) { abTimer = setTimeout(runAutoBackup, 3000); return; }
-    const st = getJ('gsync', {}); if (!st.pending) return;
-    const c = gsCfg(); if (!c.url || !c.token) return;
-    if (!navigator.onLine) return;                       // dicoba lagi saat online
-    if (!products.length) return;                        // jangan kirim kosong
-    abBusy = true;
-    if (!st.base) {                                      // patokan awal: cek jumlah barang di Sheets dulu
-      try {
-        const rr = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.token, action: 'restore' }) });
-        const j = await rr.json(); if (!j.ok) throw new Error(j.error || 'Gagal');
-        st.base = (j.products || []).length; setJ('gsync', st);
-      } catch (e) { abBusy = false; toast('Backup otomatis gagal: ' + String(e.message || e).slice(0, 50), 'err'); clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 60000); return; }
-    }
-    abBusy = false;
-    if (st.base >= 10 && products.length < st.base * 0.8) {
-      toast('Backup otomatis ditahan: barang di HP jauh lebih sedikit dari Sheets. Cek di Setelan.', 'err'); return;
-    }
-    abBusy = true; const ver = abVer;
-    try {
-      const res = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.token, action: 'backup', products: products.map(p => ({ id: p.id, name: p.name, barcode: p.barcode || '', unit: p.unit || '', price: p.price })) }) });
-      const r = await res.json(); if (!r.ok) throw new Error(r.error || 'Gagal');
-      setJ('gsync', { base: r.count != null ? r.count : products.length, at: Date.now(), pending: ver !== abVer });
-      toast('☁ Backup otomatis tersimpan');
-    } catch (e) {
-      toast('Backup otomatis gagal, dicoba lagi sebentar lagi', 'err');
-      clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 60000);
-    }
-    abBusy = false; gsRefreshStatus();
+  // ===== Sinkron barang DUA ARAH (perangkat <-> Google Sheets <-> perangkat lain) =====
+  // Tiap sinkron: ambil data dari Sheets, gabungkan dengan data di perangkat ini memakai perbandingan
+  // 3 arah terhadap keadaan sinkron terakhir ('psbase'). Jadi barang BARU, UBAHAN harga/nama, dan HAPUSAN
+  // di satu perangkat ikut muncul di perangkat lain. Kalau dua perangkat mengubah barang yang sama
+  // sekaligus, versi perangkat ini yang dipakai. Daftar kosong tidak pernah dikirim ke Sheets.
+  const psSig = p => JSON.stringify([String(p.name || ''), Number(p.price) || 0, String(p.barcode || ''), cleanUnit(p.unit)]);
+  const psHash = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+  const psNorm = p => ({ id: p.id || ('s' + psHash(String(p.name) + '|' + String(p.barcode || ''))), name: String(p.name), price: Number(p.price) || 0, barcode: String(p.barcode || ''), unit: cleanUnit(p.unit) });
+  const psMap = list => { const m = {}; list.forEach(p => { m[p.id] = psSig(p); }); return m; };
+  const psSame = (a, b) => { const ka = Object.keys(a); return ka.length === Object.keys(b).length && ka.every(k => a[k] === b[k]); };
+  function psMerge(local, remote, base) {
+    const L = new Map(), R = new Map(), seen = new Set(), ids = [], out = []; let dels = 0;
+    local.forEach(p => L.set(p.id, p)); remote.forEach(p => R.set(p.id, p));
+    local.concat(remote).forEach(p => { if (!seen.has(p.id)) { seen.add(p.id); ids.push(p.id); } });
+    ids.forEach(id => {
+      const l = L.get(id), r = R.get(id), b = base[id]; let pick = null;
+      if (l && r) pick = psSig(l) === psSig(r) ? l : (b === psSig(l) ? r : l);   // sama / Sheets lebih baru / perangkat ini lebih baru
+      else if (l) pick = (b !== undefined && b === psSig(l)) ? null : l;          // sudah dihapus di perangkat lain
+      else pick = (b !== undefined && b === psSig(r)) ? null : r;                 // sudah dihapus di perangkat ini
+      if (pick) out.push(pick); else dels++;
+    });
+    return { list: out, dels };
   }
-  window.addEventListener('online', () => { if (getJ('gsync', {}).pending) runAutoBackup(); });
-  setTimeout(() => { if (getJ('gsync', {}).pending) runAutoBackup(); }, 4000);
+
+  var psBusy = false;
+  async function psSync() {
+    const c = gsCfg(); if (!c.url || !c.token || !navigator.onLine || psBusy) return;
+    psBusy = true; clearTimeout(abTimer);
+    const ver = abVer;
+    try {
+      const rr = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.token, action: 'restore' }) });
+      const j = await rr.json(); if (!j.ok) throw new Error(j.error || 'Gagal');
+      const remote = (j.products || []).filter(p => p && p.name).map(psNorm);
+      const base = getJ('psbase', {}), nBase = Object.keys(base).length;
+      if (!products.length && nBase) return;                         // data lokal kosong tapi pernah sinkron: jangan apa-apakan
+      const mg = psMerge(products, remote, base);
+      if (mg.dels >= 10 && mg.dels > nBase * 0.5) { toast('Sinkron ditahan: terlalu banyak barang akan terhapus. Cek di Setelan.', 'err'); return; }
+      const after = psMap(mg.list);
+      if (!psSame(psMap(products), after)) {                          // ada perubahan dari perangkat lain
+        products = mg.list; abSkip = true; saveProducts(); abSkip = false;
+        try { if (view === 'produk') renderProduk(); } catch (e) {}
+        toast('🔄 Barang diperbarui dari perangkat lain');
+      }
+      if (mg.list.length && !psSame(psMap(remote), after)) {          // ada perubahan lokal: kirim ke Sheets
+        const res = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.token, action: 'backup', products: mg.list.map(p => ({ id: p.id, name: p.name, barcode: p.barcode || '', unit: p.unit || '', price: p.price })) }) });
+        const r = await res.json(); if (!r.ok) throw new Error(r.error || 'Gagal');
+        toast('☁ Barang tersinkron');
+      }
+      if (mg.list.length) setJ('psbase', after);
+      setJ('gsync', { base: mg.list.length, at: Date.now(), pending: ver !== abVer });
+    } catch (e) {
+      if (getJ('gsync', {}).pending) { toast('Sinkron gagal, dicoba lagi sebentar lagi', 'err'); clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 60000); }
+    }
+    psBusy = false; gsRefreshStatus();
+  }
+  function runAutoBackup() { if (psBusy) { clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 3000); return; } return psSync(); }
+  window.addEventListener('online', () => runAutoBackup());
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) runAutoBackup(); });
+  setInterval(() => { if (!document.hidden) runAutoBackup(); }, 60000);
+  setTimeout(runAutoBackup, 2000);
 
   // ===== Sinkron Riwayat Transaksi ke Google Sheets =====
   // Aman untuk banyak perangkat: transaksi hanya DITAMBAH / DIBATALKAN berdasarkan ID, tidak pernah menimpa seluruh data.
@@ -1246,7 +1274,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       if (!(await confirmSheet('Ganti ' + products.length + ' barang di HP ini dengan ' + list.length + ' barang dari Google Sheets?', { title: 'Pulihkan dari Sheets', ok: 'Ganti' }))) return;
       products = list.map(p => ({ id: p.id || uid(), name: p.name, price: p.price, barcode: p.barcode || '', unit: cleanUnit(p.unit) }));
       abSkip = true; saveProducts(); abSkip = false;
-      setJ('gsync', { base: list.length, at: Date.now(), pending: false }); gsRefreshStatus();
+      setJ('gsync', { base: list.length, at: Date.now(), pending: false }); setJ('psbase', psMap(products)); gsRefreshStatus();
       toast('Dipulihkan: ' + list.length + ' barang');
       try { renderProduk(); } catch (e) {}
     } catch (e) { toast('Gagal: ' + String(e.message || e).slice(0, 60), 'err'); }

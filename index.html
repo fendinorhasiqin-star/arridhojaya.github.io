@@ -4651,6 +4651,7 @@
   function gsSaveCfg(c) { storageSet('gsheet', JSON.stringify(c)); }
   function gsConfigured() { const c = gsCfg(); return !!(c.url && c.token); }
   let gsTimer = null, gsBusy = false, gsSuppress = false;
+  var psBusy = false, psDirtyVer = 0;
 
   async function gsPost(payload) {
     const c = gsCfg();
@@ -4684,13 +4685,14 @@
   // Dipanggil setiap data barang disimpan: jadwalkan backup 30 detik setelah perubahan terakhir
   function gsMarkDirty() {
     if (gsSuppress || !gsConfigured()) return;
-    const c = gsCfg(); c.dirty = true; gsSaveCfg(c);
+    const c = gsCfg(); c.dirty = true; gsSaveCfg(c); psDirtyVer++;
     clearTimeout(gsTimer);
-    gsTimer = setTimeout(() => gsBackup(false), 30000);
+    gsTimer = setTimeout(gsSync, 4000);
     gsRenderStatus();
   }
 
   async function gsBackup(manual, force) {
+    if (!manual && !force) return gsSync();   // otomatis = sinkron dua arah; backup paksa hanya lewat tombol manual
     if (!gsConfigured() || gsBusy) return;
     if (!navigator.onLine) {
       if (manual) showToast('Tidak ada internet. Backup akan jalan otomatis saat online.', 'error');
@@ -4719,6 +4721,7 @@
       const c = gsCfg();
       c.dirty = false; c.last = Date.now(); c.lastCount = r.count; c.error = ''; c.hold = '';
       gsSaveCfg(c);
+      try { storageSet('psbase', JSON.stringify(psMap(products))); } catch (e) {}
       if (manual) showToast('Backup berhasil: ' + r.count + ' barang');
     } catch (e) {
       const c = gsCfg(); c.error = String(e.message || e).slice(0, 80); gsSaveCfg(c);
@@ -4743,6 +4746,7 @@
       products = list.map(p => ({ id: p.id || uid(), name: p.name, price: p.price, barcode: p.barcode || '', unit: cleanUnit(p.unit) }));
       await saveProducts();
       gsSuppress = false;
+      try { storageSet('psbase', JSON.stringify(psMap(products))); } catch (e) {}
       const c = gsCfg(); c.lastCount = list.length; c.dirty = false; c.hold = ''; c.error = ''; gsSaveCfg(c);
       renderProdukPage(); gsRenderStatus();
       showToast('Dipulihkan: ' + list.length + ' barang');
@@ -4751,6 +4755,72 @@
       showToast('Gagal memulihkan: ' + String(e.message || e).slice(0, 60), 'error');
     }
   }
+
+
+  // ===== Sinkron barang DUA ARAH (perangkat <-> Google Sheets <-> perangkat lain) =====
+  // Tiap sinkron: ambil data dari Sheets, gabungkan dengan data di perangkat ini memakai perbandingan
+  // 3 arah terhadap keadaan sinkron terakhir ('psbase'). Jadi barang BARU, UBAHAN harga/nama, dan HAPUSAN
+  // di satu perangkat ikut muncul di perangkat lain. Kalau dua perangkat mengubah barang yang sama
+  // sekaligus, versi perangkat ini yang dipakai. Daftar kosong tidak pernah dikirim ke Sheets.
+  const psSig = p => JSON.stringify([String(p.name || ''), Number(p.price) || 0, String(p.barcode || ''), cleanUnit(p.unit)]);
+  const psHash = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+  const psNorm = p => ({ id: p.id || ('s' + psHash(String(p.name) + '|' + String(p.barcode || ''))), name: String(p.name), price: Number(p.price) || 0, barcode: String(p.barcode || ''), unit: cleanUnit(p.unit) });
+  const psMap = list => { const m = {}; list.forEach(p => { m[p.id] = psSig(p); }); return m; };
+  const psSame = (a, b) => { const ka = Object.keys(a); return ka.length === Object.keys(b).length && ka.every(k => a[k] === b[k]); };
+  function psMerge(local, remote, base) {
+    const L = new Map(), R = new Map(), seen = new Set(), ids = [], out = []; let dels = 0;
+    local.forEach(p => L.set(p.id, p)); remote.forEach(p => R.set(p.id, p));
+    local.concat(remote).forEach(p => { if (!seen.has(p.id)) { seen.add(p.id); ids.push(p.id); } });
+    ids.forEach(id => {
+      const l = L.get(id), r = R.get(id), b = base[id]; let pick = null;
+      if (l && r) pick = psSig(l) === psSig(r) ? l : (b === psSig(l) ? r : l);   // sama / Sheets lebih baru / perangkat ini lebih baru
+      else if (l) pick = (b !== undefined && b === psSig(l)) ? null : l;          // sudah dihapus di perangkat lain
+      else pick = (b !== undefined && b === psSig(r)) ? null : r;                 // sudah dihapus di perangkat ini
+      if (pick) out.push(pick); else dels++;
+    });
+    return { list: out, dels };
+  }
+
+  async function gsSync() {
+    if (!gsConfigured() || !navigator.onLine || psBusy || gsBusy) return;
+    psBusy = true; clearTimeout(gsTimer);
+    const ver = psDirtyVer;
+    try {
+      const r0 = await gsPost({ action: 'restore' });
+      if (!r0.ok) throw new Error(r0.error || 'Gagal');
+      const remote = (r0.products || []).filter(p => p && p.name).map(psNorm);
+      let base = {}; try { base = JSON.parse(storageGet('psbase') || '{}') || {}; } catch (e) { base = {}; }
+      const nBase = Object.keys(base).length;
+      if (!products.length && nBase) return;                         // data lokal kosong tapi pernah sinkron: jangan apa-apakan
+      const mg = psMerge(products, remote, base);
+      if (mg.dels >= 10 && mg.dels > nBase * 0.5) {
+        const c = gsCfg(); c.hold = 'sinkron ditahan, terlalu banyak barang akan terhapus'; gsSaveCfg(c); return;
+      }
+      const after = psMap(mg.list);
+      if (!psSame(psMap(products), after)) {                          // ada perubahan dari perangkat lain
+        gsSuppress = true;
+        try { products = mg.list; await saveProducts(); } finally { gsSuppress = false; }
+        try { if (currentView === 'produk') renderProdukPage(); } catch (e) {}
+        showToast('Barang diperbarui dari perangkat lain');
+      }
+      let count = mg.list.length;
+      if (mg.list.length && !psSame(psMap(remote), after)) {          // ada perubahan lokal: kirim ke Sheets
+        const r = await gsPost({ action: 'backup', force: false, products: mg.list.map(p => ({ id: p.id, name: p.name, barcode: p.barcode || '', price: p.price, unit: unitOf(p) })) });
+        if (!r.ok) throw new Error(r.error || 'Gagal');
+        if (r.count != null) count = r.count;
+      }
+      if (mg.list.length) storageSet('psbase', JSON.stringify(after));
+      const c = gsCfg(); c.dirty = (ver !== psDirtyVer); c.last = Date.now(); c.lastCount = count; c.error = ''; c.hold = ''; gsSaveCfg(c);
+    } catch (e) {
+      const c = gsCfg(); c.error = String(e.message || e).slice(0, 80); gsSaveCfg(c);
+    } finally {
+      psBusy = false; gsSuppress = false; gsRenderStatus();
+    }
+  }
+  window.addEventListener('online', () => { if (gsConfigured()) gsSync(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && gsConfigured()) gsSync(); });
+  setInterval(() => { if (!document.hidden && gsConfigured()) gsSync(); }, 60000);
+  setTimeout(() => { if (gsConfigured()) gsSync(); }, 2500);
 
   function openGsModal() {
     const c = gsCfg();
@@ -4789,7 +4859,6 @@
     overlay.querySelector('#gsRestoreBtn').onclick = async () => { save(); overlay.remove(); await gsRestore(); };
   }
   document.getElementById('gsOpenBtn').onclick = openGsModal;
-  window.addEventListener('online', () => { if (gsConfigured() && gsCfg().dirty) gsBackup(false); });
 
   // ===== Sinkron Riwayat Transaksi ke Google Sheets =====
   // Aman untuk banyak perangkat: transaksi hanya DITAMBAH / DIBATALKAN berdasarkan ID, tidak pernah menimpa seluruh data.
