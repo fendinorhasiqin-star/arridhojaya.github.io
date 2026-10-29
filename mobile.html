@@ -389,35 +389,51 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   }
 
   var psBusy = false;
+  async function psPost(c, body) {
+    const res = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ token: c.token }, body)) });
+    return await res.json();
+  }
+  const psOut = p => ({ id: p.id, name: p.name, barcode: p.barcode || '', unit: p.unit || '', price: p.price });
+  // Cara lama (dipakai kalau Apps Script belum diperbarui): ambil, gabung di HP, lalu kirim.
+  async function psLegacy(c, base, nBase) {
+    const j = await psPost(c, { action: 'restore' }); if (!j.ok) throw new Error(j.error || 'Gagal');
+    const remote = (j.products || []).filter(p => p && p.name).map(psNorm);
+    const mg = psMerge(products, remote, base);
+    if (mg.dels >= 10 && mg.dels > nBase * 0.5) return null;
+    if (mg.list.length && !psSame(psMap(remote), psMap(mg.list))) {
+      const r = await psPost(c, { action: 'backup', products: mg.list.map(psOut) }); if (!r.ok) throw new Error(r.error || 'Gagal');
+    }
+    return mg.list;
+  }
   async function psSync() {
-    const c = gsCfg(); if (!c.url || !c.token || !navigator.onLine || psBusy) return;
+    const c = gsCfg(); if (!c.url || !c.token || !navigator.onLine) return;
+    if (psBusy) { clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 3000); return; }
     psBusy = true; clearTimeout(abTimer);
     const ver = abVer;
     try {
-      const rr = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.token, action: 'restore' }) });
-      const j = await rr.json(); if (!j.ok) throw new Error(j.error || 'Gagal');
-      const remote = (j.products || []).filter(p => p && p.name).map(psNorm);
       const base = getJ('psbase', {}), nBase = Object.keys(base).length;
       if (!products.length && nBase) return;                         // data lokal kosong tapi pernah sinkron: jangan apa-apakan
-      const mg = psMerge(products, remote, base);
-      if (mg.dels >= 10 && mg.dels > nBase * 0.5) { toast('Sinkron ditahan: terlalu banyak barang akan terhapus. Cek di Setelan.', 'err'); return; }
-      const after = psMap(mg.list);
+      let list;
+      const r = await psPost(c, { action: 'sync', base: base, products: products.map(psOut) });   // gabung & simpan di server dalam satu kunci
+      if (r.ok === false && /tidak dikenal/i.test(r.error || '')) list = await psLegacy(c, base, nBase);   // Apps Script belum diperbarui
+      else { if (!r.ok) throw new Error(r.error || 'Gagal'); list = r.held ? null : (r.products || []).map(psNorm); }
+      if (!list) { toast('Sinkron ditahan: terlalu banyak barang akan terhapus. Cek di Setelan.', 'err'); return; }
+      if (ver !== abVer) { clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 1000); return; }   // ada edit selama proses: ulangi, jangan timpa
+      const after = psMap(list);
       if (!psSame(psMap(products), after)) {                          // ada perubahan dari perangkat lain
-        products = mg.list; abSkip = true; saveProducts(); abSkip = false;
+        const cur = new Map(products.map(p => [p.id, p]));
+        products = list.map(p => { const o = cur.get(p.id); return o && psSig(o) === psSig(p) ? o : p; });
+        abSkip = true; saveProducts(); abSkip = false;
         try { if (view === 'produk') renderProduk(); } catch (e) {}
         toast('🔄 Barang diperbarui dari perangkat lain');
       }
-      if (mg.list.length && !psSame(psMap(remote), after)) {          // ada perubahan lokal: kirim ke Sheets
-        const res = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.token, action: 'backup', products: mg.list.map(p => ({ id: p.id, name: p.name, barcode: p.barcode || '', unit: p.unit || '', price: p.price })) }) });
-        const r = await res.json(); if (!r.ok) throw new Error(r.error || 'Gagal');
-        toast('☁ Barang tersinkron');
-      }
-      if (mg.list.length) setJ('psbase', after);
-      setJ('gsync', { base: mg.list.length, at: Date.now(), pending: ver !== abVer });
+      if (list.length) setJ('psbase', after);
+      setJ('gsync', { base: list.length, at: Date.now(), pending: false });
     } catch (e) {
       if (getJ('gsync', {}).pending) { toast('Sinkron gagal, dicoba lagi sebentar lagi', 'err'); clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 60000); }
+    } finally {
+      psBusy = false; gsRefreshStatus();
     }
-    psBusy = false; gsRefreshStatus();
   }
   function runAutoBackup() { if (psBusy) { clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 3000); return; } return psSync(); }
   window.addEventListener('online', () => runAutoBackup());

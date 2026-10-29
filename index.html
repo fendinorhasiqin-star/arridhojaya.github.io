@@ -4781,36 +4781,43 @@
     return { list: out, dels };
   }
 
+  const psOut = p => ({ id: p.id, name: p.name, barcode: p.barcode || '', price: p.price, unit: unitOf(p) });
+  // Cara lama (dipakai kalau Apps Script belum diperbarui): ambil, gabung di sini, lalu kirim.
+  async function psLegacy(base, nBase) {
+    const r0 = await gsPost({ action: 'restore' }); if (!r0.ok) throw new Error(r0.error || 'Gagal');
+    const remote = (r0.products || []).filter(p => p && p.name).map(psNorm);
+    const mg = psMerge(products, remote, base);
+    if (mg.dels >= 10 && mg.dels > nBase * 0.5) return null;
+    if (mg.list.length && !psSame(psMap(remote), psMap(mg.list))) {
+      const r = await gsPost({ action: 'backup', force: false, products: mg.list.map(psOut) }); if (!r.ok) throw new Error(r.error || 'Gagal');
+    }
+    return mg.list;
+  }
   async function gsSync() {
-    if (!gsConfigured() || !navigator.onLine || psBusy || gsBusy) return;
+    if (!gsConfigured() || !navigator.onLine || gsBusy) return;
+    if (psBusy) { clearTimeout(gsTimer); gsTimer = setTimeout(gsSync, 3000); return; }
     psBusy = true; clearTimeout(gsTimer);
     const ver = psDirtyVer;
     try {
-      const r0 = await gsPost({ action: 'restore' });
-      if (!r0.ok) throw new Error(r0.error || 'Gagal');
-      const remote = (r0.products || []).filter(p => p && p.name).map(psNorm);
       let base = {}; try { base = JSON.parse(storageGet('psbase') || '{}') || {}; } catch (e) { base = {}; }
       const nBase = Object.keys(base).length;
       if (!products.length && nBase) return;                         // data lokal kosong tapi pernah sinkron: jangan apa-apakan
-      const mg = psMerge(products, remote, base);
-      if (mg.dels >= 10 && mg.dels > nBase * 0.5) {
-        const c = gsCfg(); c.hold = 'sinkron ditahan, terlalu banyak barang akan terhapus'; gsSaveCfg(c); return;
-      }
-      const after = psMap(mg.list);
+      let list;
+      const r = await gsPost({ action: 'sync', base: base, products: products.map(psOut) });   // gabung & simpan di server dalam satu kunci
+      if (r.ok === false && /tidak dikenal/i.test(r.error || '')) list = await psLegacy(base, nBase);   // Apps Script belum diperbarui
+      else { if (!r.ok) throw new Error(r.error || 'Gagal'); list = r.held ? null : (r.products || []).map(psNorm); }
+      if (!list) { const c = gsCfg(); c.hold = 'sinkron ditahan, terlalu banyak barang akan terhapus'; gsSaveCfg(c); return; }
+      if (ver !== psDirtyVer) { clearTimeout(gsTimer); gsTimer = setTimeout(gsSync, 1000); return; }   // ada edit selama proses: ulangi, jangan timpa
+      const after = psMap(list);
       if (!psSame(psMap(products), after)) {                          // ada perubahan dari perangkat lain
+        const cur = new Map(products.map(p => [p.id, p]));
         gsSuppress = true;
-        try { products = mg.list; await saveProducts(); } finally { gsSuppress = false; }
+        try { products = list.map(p => { const o = cur.get(p.id); return o && psSig(o) === psSig(p) ? o : p; }); await saveProducts(); } finally { gsSuppress = false; }
         try { if (currentView === 'produk') renderProdukPage(); } catch (e) {}
         showToast('Barang diperbarui dari perangkat lain');
       }
-      let count = mg.list.length;
-      if (mg.list.length && !psSame(psMap(remote), after)) {          // ada perubahan lokal: kirim ke Sheets
-        const r = await gsPost({ action: 'backup', force: false, products: mg.list.map(p => ({ id: p.id, name: p.name, barcode: p.barcode || '', price: p.price, unit: unitOf(p) })) });
-        if (!r.ok) throw new Error(r.error || 'Gagal');
-        if (r.count != null) count = r.count;
-      }
-      if (mg.list.length) storageSet('psbase', JSON.stringify(after));
-      const c = gsCfg(); c.dirty = (ver !== psDirtyVer); c.last = Date.now(); c.lastCount = count; c.error = ''; c.hold = ''; gsSaveCfg(c);
+      if (list.length) storageSet('psbase', JSON.stringify(after));
+      const c = gsCfg(); c.dirty = false; c.last = Date.now(); c.lastCount = list.length; c.error = ''; c.hold = ''; gsSaveCfg(c);
     } catch (e) {
       const c = gsCfg(); c.error = String(e.message || e).slice(0, 80); gsSaveCfg(c);
     } finally {
