@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<script>
+  (function () {
+    // Jangan dialihkan kalau user sengaja memilih tampilan desktop
+    var params = new URLSearchParams(location.search);
+    if (params.get('desktop') === '1') {
+      try { sessionStorage.setItem('forceDesktop', '1'); } catch (e) {}
+      return;
+    }
+    try { if (sessionStorage.getItem('forceDesktop') === '1') return; } catch (e) {}
+
+    var isMobile =
+      /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(navigator.userAgent) ||
+      (window.matchMedia && window.matchMedia('(max-width: 768px) and (pointer: coarse)').matches);
+
+    if (isMobile) {
+      location.replace('mobile.html' + location.search + location.hash);
+    }
+  })();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARRIDHO JAYA</title>
