@@ -61,6 +61,7 @@ h2.pg{margin:4px 2px 12px;font-size:18px}
 .btn.full{width:100%;margin-top:10px}
 .row2{display:flex;gap:8px}.row2>*{flex:1}
 label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12px 0 4px}
+.nosave{-webkit-text-security:disc;text-security:disc}
 .hint{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.45}
 
 /* Suggest */
@@ -213,9 +214,9 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       <b>☁ Backup &amp; Pulihkan Google Sheets</b>
       <p class="hint">Data di HP ini terpisah dari komputer kasir. Gunakan ini untuk menyalin daftar barang dari backup Sheets ke HP.</p>
       <label class="l">URL Web App</label>
-      <input class="inp" id="gUrl" type="text">
+      <input class="inp" id="gUrl" type="text" name="gs-alamat-1" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" readonly onfocus="this.removeAttribute('readonly')">
       <label class="l">Token rahasia</label>
-      <input class="inp" id="gToken" type="password">
+      <input class="inp nosave" id="gToken" type="text" name="gs-akses-1" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" readonly onfocus="this.removeAttribute('readonly')">
       <p class="hint" id="gStatus" style="margin:0 0 10px"></p>
       <p class="hint">Backup berjalan otomatis setiap kali barang diubah dan <b>mengganti seluruh isi sheet</b> dengan daftar barang di HP ini.</p>
       <button class="btn ghost full" id="gRestore" type="button" style="margin-top:12px">Pulihkan Barang ke HP Ini</button>
@@ -321,12 +322,14 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   }
   function confirmSheet(msg, o) {
     o = o || {};
-    return new Promise(res => {
+    return new Promise(resolve => {
+      let decided = false;
+      const res = v => { if (decided) return; decided = true; resolve(v); };   // jawaban pertama yang berlaku
       const ov = openSheet('<h3>' + esc(o.title || 'Konfirmasi') + '</h3><p style="color:var(--soft);margin:6px 0 4px">' + msg + '</p>' +
         '<div class="row2" style="margin-top:14px"><button class="btn ghost" id="cNo">Batal</button><button class="btn ' + (o.danger ? 'danger' : 'primary') + '" id="cYes">' + esc(o.ok || 'Ya') + '</button></div>',
         { sticky: true, onClose: () => res(false) });
-      $('#cNo', ov).onclick = () => { ov.close(); res(false); };
-      $('#cYes', ov).onclick = () => { ov.close(); res(true); };
+      $('#cNo', ov).onclick = () => { res(false); ov.close(); };
+      $('#cYes', ov).onclick = () => { res(true); ov.close(); };   // jawab dulu, baru tutup (menutup = jawaban "batal" kalau belum ada jawaban)
     });
   }
 
@@ -1245,6 +1248,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       abSkip = true; saveProducts(); abSkip = false;
       setJ('gsync', { base: list.length, at: Date.now(), pending: false }); gsRefreshStatus();
       toast('Dipulihkan: ' + list.length + ' barang');
+      try { renderProduk(); } catch (e) {}
     } catch (e) { toast('Gagal: ' + String(e.message || e).slice(0, 60), 'err'); }
   };
 
