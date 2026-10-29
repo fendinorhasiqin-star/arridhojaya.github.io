@@ -129,6 +129,23 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 130px);transform:translateX(-50%);background:var(--ink);color:#fff;
   padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;z-index:90;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
 .toast.show{opacity:1}.toast.err{background:var(--danger)}
+
+/* Struk thermal 58mm */
+.print-only{display:none}
+#printReceipt{width:100%;box-sizing:border-box;padding:1.5mm 2.5mm 0;font-family:"SF Mono",Consolas,Menlo,monospace;color:#000;font-size:12px;line-height:1.4}
+.pr-store{text-align:center;font-weight:800;font-size:1.25em;text-transform:uppercase;margin-bottom:2px}
+.pr-address,.pr-line{text-align:center;font-size:.875em;margin-bottom:3px;line-height:1.3}
+.pr-rule{border-top:1px dashed #000;margin:4px 0}
+.pr-item{margin-bottom:4px}.pr-item .pi-name{font-weight:700}
+.pr-item .pi-sub,.pr-row{display:flex;justify-content:space-between;padding:1px 0}
+.pr-row.pr-total{font-weight:800;font-size:1.2em}
+.pr-thanks{text-align:center;margin-top:8px;font-weight:700;font-size:.92em;line-height:1.5;padding-bottom:10px}
+.pr-end{margin-top:3mm;border-top:1px dashed #000;height:4mm}
+@media print{
+  html,body{margin:0!important;padding:0!important;width:58mm;height:auto!important;overflow:visible!important;background:#fff!important}
+  body > *:not(#printReceipt){display:none!important}
+  #printReceipt{display:block;position:static}
+}
 </style>
 </head>
 <body>
@@ -200,6 +217,17 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       <input class="inp" id="gToken" type="password">
       <button class="btn ghost full" id="gRestore" type="button">Pulihkan Barang ke HP Ini</button>
     </div>
+    <div class="card" style="display:block">
+      <b>🖨️ Printer</b>
+      <label class="l">Metode cetak</label>
+      <select class="inp" id="sPrintMode">
+        <option value="bt">Bluetooth langsung (printer thermal)</option>
+        <option value="system">Menu cetak HP</option>
+      </select>
+      <button class="btn ghost full" id="sBtPair" type="button">Hubungkan / Ganti Printer</button>
+      <button class="btn ghost full" id="sBtTest" type="button">Cetak Tes</button>
+      <p class="hint" id="sBtInfo"></p>
+    </div>
     <p class="hint" style="padding:0 4px">Versi HP. Data (barang, riwayat, hutang) tersimpan di browser HP ini saja dan tidak otomatis sinkron dengan komputer kasir.</p>
   </section>
 </main>
@@ -218,6 +246,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
 </nav>
 
 <div class="toast" id="toast"></div>
+<div id="printReceipt" class="print-only"></div>
 
 <script>
 (function () {
@@ -496,6 +525,138 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
     }, 350);
   };
 
+  // ===== Cetak struk (thermal 58mm) =====
+  function printSystem(rec) {
+    const items = Array.isArray(rec.items) && rec.items.length ? rec.items : [{ name: rec.itemsLabel || 'Transaksi', price: rec.total, qty: 1 }];
+    const utang = rec.paymentMethod === 'utang';
+    const el = $('#printReceipt');
+    el.innerHTML = `
+      <div class="pr-store">${esc(settings.name)}</div>
+      <div class="pr-address">${esc(settings.address).replace(/\n/g, ' ')}</div>
+      <div class="pr-line">${esc(rec.dateLabel || '')}  ${esc(rec.time || '')}${rec.kasir ? '  •  Kasir: ' + esc(rec.kasir) : ''}</div>
+      <div class="pr-rule"></div>
+      ${items.map(c => `<div class="pr-item"><div class="pi-name">${esc(c.name)}</div>
+        <div class="pi-sub"><span>${c.qty}${c.unit ? ' ' + esc(c.unit) : ''} x ${rp(c.price)}</span><span>${rp(c.price * c.qty)}</span></div></div>`).join('')}
+      <div class="pr-rule"></div>
+      <div class="pr-row pr-total"><span>TOTAL</span><span>${rp(rec.total)}</span></div>
+      ${utang
+        ? `<div class="pr-row"><span>Status</span><b>BELUM LUNAS${rec.customerName ? ' — ' + esc(rec.customerName) : ''}</b></div>`
+        : `<div class="pr-row"><span>Bayar</span><span>${rp(rec.bayar)}</span></div><div class="pr-row"><span>Kembali</span><span>${rp(rec.kembali)}</span></div>`}
+      <div class="pr-rule"></div>
+      <div class="pr-thanks">Terima kasih sudah berbelanja di toko kami</div>
+      <div class="pr-end"></div>`;
+    // Kunci panjang kertas sesuai isi struk
+    try {
+      const prev = el.getAttribute('style');
+      el.style.cssText = 'display:block;position:absolute;left:-9999px;top:0;width:58mm;visibility:hidden;';
+      const hPx = el.getBoundingClientRect().height;
+      if (prev === null) el.removeAttribute('style'); else el.setAttribute('style', prev);
+      const mm = Math.ceil(hPx * 25.4 / 96) + 1;
+      let st = document.getElementById('pageSizeStyle');
+      if (!st) { st = document.createElement('style'); st.id = 'pageSizeStyle'; document.head.appendChild(st); }
+      st.textContent = '@page { size: 58mm ' + mm + 'mm; margin: 0; }';
+    } catch (e) {}
+    window.print();
+  }
+
+  // ===== Cetak Bluetooth langsung (ESC/POS via Web Bluetooth) =====
+  const BT_SERVICES = [0x18f0, 0xff00, 0xffe0, 0xffe5, 0xfee7, 0xffb0, 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455'];
+  const W = 32; // lebar kertas 58mm = 32 karakter
+  let btDev = null, btChar = null;
+  const btSupported = () => !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
+  const printMode = () => getRaw('printMode') || (btSupported() ? 'bt' : 'system');
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  async function btConnect() {
+    if (btChar && btDev && btDev.gatt.connected) return btChar;
+    if (!btDev) {
+      btDev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: BT_SERVICES });
+      btDev.addEventListener('gattserverdisconnected', () => { btChar = null; });
+    }
+    const server = await btDev.gatt.connect();
+    const services = await server.getPrimaryServices();
+    for (const s of services) {
+      const chars = await s.getCharacteristics();
+      const c = chars.find(x => x.properties.writeWithoutResponse || x.properties.write);
+      if (c) { btChar = c; return c; }
+    }
+    throw new Error('Printer ini tidak mendukung Bluetooth LE (kemungkinan tipe Bluetooth klasik)');
+  }
+
+  function btBytes(rec) {
+    const items = Array.isArray(rec.items) && rec.items.length ? rec.items : [{ name: rec.itemsLabel || 'Transaksi', price: rec.total, qty: 1 }];
+    const out = [];
+    const push = (...b) => out.push(...b);
+    const txt = s => {
+      s = String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7E]/g, '?');
+      for (const ch of s) out.push(ch.charCodeAt(0));
+    };
+    const line = s => { txt(s); push(0x0A); };
+    const wrap = s => { const r = []; s = String(s); while (s.length > W) { r.push(s.slice(0, W)); s = s.slice(W); } r.push(s); return r; };
+    const lr = (a, b) => {
+      a = String(a); b = String(b);
+      if (a.length > W - b.length - 1) a = a.slice(0, Math.max(0, W - b.length - 1));
+      line(a + ' '.repeat(Math.max(1, W - a.length - b.length)) + b);
+    };
+    const center = () => push(0x1B, 0x61, 1), left = () => push(0x1B, 0x61, 0);
+    const bold = on => push(0x1B, 0x45, on ? 1 : 0);
+    const rule = '-'.repeat(W);
+
+    push(0x1B, 0x40);                                   // reset printer
+    center(); bold(true); wrap(String(settings.name).toUpperCase()).forEach(line); bold(false);
+    wrap(String(settings.address).replace(/\n/g, ' ')).forEach(line);
+    line((rec.dateLabel || '') + '  ' + (rec.time || ''));
+    if (rec.kasir) line('Kasir: ' + rec.kasir);
+    left(); line(rule);
+    items.forEach(c => {
+      wrap(c.name).forEach(line);
+      lr(c.qty + (c.unit ? ' ' + c.unit : '') + ' x ' + rp(c.price), rp(c.price * c.qty));
+    });
+    line(rule);
+    bold(true); lr('TOTAL', rp(rec.total)); bold(false);
+    if (rec.paymentMethod === 'utang') {
+      lr('Status', 'BELUM LUNAS');
+      if (rec.customerName) lr('Pelanggan', rec.customerName);
+    } else {
+      lr('Bayar', rp(rec.bayar)); lr('Kembali', rp(rec.kembali));
+    }
+    line(rule);
+    center(); line('Terima kasih sudah'); line('berbelanja di toko kami');
+    push(0x0A, 0x0A, 0x0A, 0x0A);                        // dorong kertas keluar
+    return new Uint8Array(out);
+  }
+
+  async function btSend(bytes) {
+    const c = await btConnect();
+    const noResp = !!c.properties.writeWithoutResponse;
+    let size = 100;
+    for (let i = 0; i < bytes.length;) {
+      const chunk = bytes.slice(i, i + size);
+      try { if (noResp) await c.writeValueWithoutResponse(chunk); else await c.writeValueWithResponse(chunk); }
+      catch (e) { if (size > 20) { size = 20; continue; } throw e; }
+      i += chunk.length; await delay(25);
+    }
+  }
+
+  // Dipanggil langsung dari tombol (butuh "gerakan pengguna" agar Chrome mengizinkan pilih printer)
+  async function printReceipt(rec) {
+    if (printMode() === 'bt' && btSupported()) {
+      try {
+        toast('Mencetak…');
+        await btSend(btBytes(rec));
+        toast('✅ Struk dicetak');
+        return;
+      } catch (e) {
+        if (e && e.name === 'NotFoundError') { toast('Pilih printer dibatalkan', 'err'); return; }
+        btChar = null;
+        const ok = await confirmSheet('Gagal cetak lewat Bluetooth: ' + esc(String((e && e.message) || e).slice(0, 90)) + '<br><br>Cetak lewat menu cetak HP?', { title: 'Cetak gagal', ok: 'Menu cetak HP' });
+        if (ok) printSystem(rec);
+        return;
+      }
+    }
+    printSystem(rec);
+  }
+
   // ===== Pembayaran =====
   $('#cbPay').onclick = openPay;
   function cashSteps(t) {
@@ -574,13 +735,15 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       const saved = setJ('history:' + key, list);
       cart = []; renderCart(); renderBadge(); ov.close(); qEl.value = ''; updateSuggest();
       if (!saved) toast('⚠️ Transaksi GAGAL tersimpan (penyimpanan penuh)', 'err');
-      if (method === 'tunai') {
-        const s = openSheet(`<div class="ok-ic">✅</div><h3 class="center">Transaksi Selesai</h3>
-          <div class="kemb"><span>Kembalian</span><b class="mono">${rp(kembali)}</b></div>
-          <button class="btn primary full" id="sOk">OK</button>`, { sticky: true });
-        $('#sOk', s).onclick = () => s.close();
-        setTimeout(() => $('#sOk', s) && $('#sOk', s).focus(), 60);
-      } else toast('Utang dicatat — ' + rec.customerName + ': ' + rp(total));
+      const s = openSheet(`<div class="ok-ic">✅</div><h3 class="center">${method === 'tunai' ? 'Transaksi Selesai' : 'Utang Dicatat'}</h3>
+        ${method === 'tunai'
+          ? `<div class="kemb"><span>Kembalian</span><b class="mono">${rp(kembali)}</b></div>`
+          : `<div class="kemb"><span>${esc(rec.customerName)}</span><b class="mono" style="color:var(--danger)">${rp(total)}</b></div>`}
+        <button class="btn green full" id="sPrint">🖨️ Cetak Struk</button>
+        <button class="btn primary full" id="sOk">Selesai</button>`, { sticky: true });
+      $('#sOk', s).onclick = () => s.close();
+      $('#sPrint', s).onclick = () => printReceipt(rec);
+      setTimeout(() => $('#sOk', s) && $('#sOk', s).focus(), 60);
     };
     setTimeout(() => bayarEl.focus(), 80);
     upd();
@@ -692,9 +855,12 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       ${utang ? `<div class="line"><span>Status</span><b style="color:var(--danger)">BELUM LUNAS</b></div><div class="line"><span>Pelanggan</span><span>${esc(rec.customerName || '')}</span></div>`
         : lunas ? `<div class="line"><span>Pelanggan</span><span>${esc(rec.customerName || '')}</span></div>`
         : `<div class="line"><span>Bayar</span><span class="mono">${rp(rec.bayar)}</span></div><div class="line"><span>Kembali</span><span class="mono">${rp(rec.kembali)}</span></div>`}
+      ${lunas ? '' : '<button class="btn green full" id="rcPrint">🖨️ Cetak Struk</button>'}
       <button class="btn ghost full" id="rcClose">Tutup</button>
       ${lunas ? '' : '<button class="btn danger full" id="rcDel">Hapus Transaksi</button>'}`);
     $('#rcClose', ov).onclick = () => ov.close();
+    const prBtn = $('#rcPrint', ov);
+    if (prBtn) prBtn.onclick = () => printReceipt(rec);
     const del = $('#rcDel', ov);
     if (del) del.onclick = async () => {
       if (!(await confirmSheet('Hapus transaksi jam ' + esc(rec.time || '') + ' senilai ' + rp(rec.total) + '? Tidak bisa dikembalikan.', { title: 'Hapus Transaksi', ok: 'Hapus', danger: true }))) return;
@@ -767,6 +933,10 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   function renderSetelan() {
     $('#sNama').value = settings.name; $('#sAlamat').value = settings.address; $('#sKasir').value = kasirName;
     const g = gsCfg(); $('#gUrl').value = g.url || ''; $('#gToken').value = g.token || '';
+    $('#sPrintMode').value = printMode();
+    $('#sBtInfo').textContent = btSupported()
+      ? 'Nyalakan printer dan Bluetooth HP, lalu tekan "Hubungkan" dan pilih printer (jangan dipasangkan lewat menu Bluetooth bawaan HP jika tidak muncul di daftar).'
+      : 'Browser ini tidak mendukung Bluetooth langsung. Gunakan Chrome di Android dengan halaman HTTPS, atau pakai "Menu cetak HP".';
   }
   $('#sSave').onclick = () => {
     const name = $('#sNama').value.trim(); if (!name) { toast('Nama toko wajib diisi', 'err'); return; }
@@ -789,6 +959,19 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       saveProducts(); toast('Dipulihkan: ' + list.length + ' barang');
     } catch (e) { toast('Gagal: ' + String(e.message || e).slice(0, 60), 'err'); }
   };
+
+  $('#sPrintMode').addEventListener('change', e => { setRaw('printMode', e.target.value); toast('Metode cetak disimpan'); });
+  $('#sBtPair').onclick = async () => {
+    if (!btSupported()) { toast('Browser ini tidak mendukung Bluetooth langsung', 'err'); return; }
+    btDev = null; btChar = null;
+    try { await btConnect(); toast('✅ Terhubung: ' + (btDev.name || 'printer')); }
+    catch (e) { if (e && e.name === 'NotFoundError') return; toast('Gagal: ' + String((e && e.message) || e).slice(0, 70), 'err'); }
+  };
+  $('#sBtTest').onclick = () => printReceipt({
+    dateLabel: nowLabels().dateLabel, time: nowLabels().time, kasir: kasirName,
+    items: [{ name: 'TES CETAK PRINTER', price: 1000, qty: 1 }],
+    total: 1000, bayar: 1000, kembali: 0, paymentMethod: 'tunai'
+  });
 
   // ===== Init =====
   applyHeader(); renderCart(); renderBadge();
