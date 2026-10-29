@@ -9,17 +9,21 @@
 <style>
   :root {
     --paper: #FFFFFF;
-    --paper-dim: #F2ECDD;
-    --ink: #211C15;
-    --ink-soft: #4A4136;
-    --muted: #6E6455;
-    --border: #A99A7C;
-    --red: #A6320C;
-    --red-deep: #7E260A;
-    --red-dim: #F3D9CC;
-    --green: #2F5940;
-    --green-deep: #24462F;
-    --green-dim: #D9EADD;
+    --paper-dim: #EEF2F9;
+    --ink: #0B1F3F;
+    --ink-soft: #2F4468;
+    --muted: #6A7A96;
+    --border: #B4C0D6;
+    --red: #1F4FB4;
+    --red-deep: #163A87;
+    --red-dim: #DCE7F8;
+    --gold: #C9A24A;
+    --gold-deep: #A8832F;
+    --danger: #B3261E;
+    --danger-dim: #F8DAD7;
+    --green: #1F6B4A;
+    --green-deep: #17543A;
+    --green-dim: #D6EEE2;
     --yellow: #946B0A;
     --yellow-dim: #FBEBC9;
   }
@@ -35,17 +39,22 @@
     font-family: "SF Mono", "Consolas", "Menlo", monospace;
   }
   .app {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 28px 20px 60px;
+    max-width: none;
+    margin: 0;
+    padding: 10px 16px 60px;
   }
   header.top {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--paper-dim);
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: 22px;
-    padding-bottom: 16px;
+    margin-bottom: 14px;
+    padding: 4px 0 8px;
     border-bottom: 2px solid var(--ink);
+    box-shadow: 0 2px 0 -0px var(--gold);
   }
   header.top .brand {
     display: flex;
@@ -53,10 +62,10 @@
     gap: 10px;
   }
   header.top .brand .stamp {
-    background: var(--red);
-    color: var(--paper);
+    background: var(--gold);
+    color: var(--ink);
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: 0.08em;
     padding: 3px 8px;
     border-radius: 3px;
@@ -270,7 +279,7 @@
   .cart-row .rm {
     background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px;
   }
-  .cart-row .rm:hover { color: var(--red); }
+  .cart-row .rm:hover { color: var(--danger); }
 
   .totals {
     border-top: 1px dashed var(--border);
@@ -305,7 +314,7 @@
     font-size: 16px;
     color: var(--green);
   }
-  .trow.kembali .val.negative { color: var(--red); }
+  .trow.kembali .val.negative { color: var(--danger); }
 
   .actions {
     display: flex;
@@ -385,7 +394,7 @@
   /* MODAL */
   .modal-overlay {
     position: fixed; inset: 0;
-    background: rgba(36,31,26,0.45);
+    background: rgba(11,31,63,0.55);
     display: flex; align-items: center; justify-content: center;
     z-index: 50;
     overflow-y: auto;
@@ -424,8 +433,8 @@
     margin-top: 20px;
   }
   .modal .btn-delete {
-    background: var(--red-dim);
-    color: var(--red);
+    background: var(--danger-dim);
+    color: var(--danger);
     border: none;
     padding: 10px;
     border-radius: 7px;
@@ -584,7 +593,7 @@
     transform: translateX(-50%) translateY(-6px);
   }
   .toast.toast-error {
-    background: var(--red);
+    background: var(--danger);
   }
   .toast.toast-error.show {
     animation: toastShake 0.45s ease;
@@ -762,7 +771,7 @@
   .pos-invoice { text-align: right; display: flex; flex-direction: column; justify-content: center; }
   .pos-invoice-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .pos-invoice-num { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; margin: 2px 0 8px; }
-  .pos-invoice-total { font-size: clamp(26px, 3vw, 40px); font-weight: 900; color: var(--red); line-height: 1.15; }
+  .pos-invoice-total { font-size: clamp(26px, 3vw, 40px); font-weight: 900; color: var(--ink); line-height: 1.15; }
 
   .pos-tablewrap {
     padding: 0;
@@ -770,8 +779,8 @@
     border: none;
     border-radius: 12px;
     background: var(--pos-card);
-    border-left: 5px solid var(--red);
-    box-shadow: 0 8px 22px rgba(36,31,26,0.10);
+    border-left: 5px solid var(--gold);
+    box-shadow: 0 8px 22px rgba(11,31,63,0.14);
     overflow: hidden;
     flex: 1;
     display: flex;
@@ -783,8 +792,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 14px 18px;
-    background: var(--ink);
+    background: linear-gradient(135deg, #0F2A57, #0B1F3F);
     color: var(--paper);
+    border-bottom: 2px solid var(--gold);
   }
   .cart-title-bar .ctb-label {
     font-size: 14px;
@@ -978,7 +988,8 @@
   .sidebar {
     width: 74px;
     flex-shrink: 0;
-    background: var(--ink);
+    background: linear-gradient(180deg, #0F2A57 0%, #0B1F3F 60%, #07142B 100%);
+    border-right: 1px solid var(--gold-deep);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -998,8 +1009,8 @@
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background: var(--red);
-    color: var(--paper);
+    background: linear-gradient(135deg, #E3C47A, var(--gold-deep));
+    color: var(--ink);
     font-weight: 800;
     font-size: 12px;
     letter-spacing: 0.04em;
@@ -1024,7 +1035,7 @@
     position: relative;
   }
   .nav-btn:hover { opacity: 0.9; background: rgba(255,255,255,0.06); }
-  .nav-btn.active { opacity: 1; background: rgba(255,255,255,0.12); color: var(--paper); }
+  .nav-btn.active { opacity: 1; background: rgba(201,162,74,0.18); color: var(--paper); box-shadow: inset 3px 0 0 var(--gold); }
   .nav-icon { font-size: 17px; line-height: 1; }
   .nav-label { font-size: 9.5px; font-weight: 600; letter-spacing: 0.01em; }
   .nav-badge {
@@ -1115,7 +1126,7 @@
     font-weight: 700;
     line-height: 1;
     cursor: pointer;
-    box-shadow: 0 6px 18px rgba(184,57,14,0.38);
+    box-shadow: 0 6px 18px rgba(31,79,180,0.40);
     display: none;
     align-items: center;
     justify-content: center;
@@ -1163,7 +1174,7 @@
     font-size: 14px; color: var(--muted); padding: 4px 6px;
   }
   .pt-btn:hover { color: var(--ink); }
-  .pt-btn.pt-danger:hover { color: var(--red); }
+  .pt-btn.pt-danger:hover { color: var(--danger); }
 
   /* RIWAYAT page */
   .riwayat-dates {
@@ -1222,7 +1233,7 @@
     vertical-align: middle;
     letter-spacing: 0.02em;
   }
-  .badge-utang { background: var(--red-dim); color: var(--red); }
+  .badge-utang { background: var(--danger-dim); color: var(--danger); }
   .badge-lunas { background: var(--green-dim); color: var(--green); }
 
   /* HUTANG page */
@@ -1238,7 +1249,7 @@
     justify-content: space-between;
     align-items: center;
   }
-  .hutang-summary-bar b { color: var(--red); font-size: 15px; }
+  .hutang-summary-bar b { color: var(--danger); font-size: 15px; }
   .hutang-card {
     display: flex;
     justify-content: space-between;
@@ -1254,7 +1265,7 @@
   .hutang-card:hover { border-color: var(--red); }
   .hutang-name { font-size: 14px; font-weight: 700; }
   .hutang-phone { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-  .hutang-amount { font-size: 14.5px; font-weight: 800; color: var(--red); }
+  .hutang-amount { font-size: 14.5px; font-weight: 800; color: var(--danger); }
   .hutang-amount.lunas { color: var(--green); font-size: 12.5px; }
 
   .hutang-modal { width: 340px; max-height: 80vh; display: flex; flex-direction: column; }
@@ -1267,7 +1278,7 @@
     padding: 8px 10px;
     margin: 8px 0 12px;
   }
-  .hutang-modal-sisa b { color: var(--red); }
+  .hutang-modal-sisa b { color: var(--danger); }
   .hutang-entries { overflow-y: auto; max-height: 260px; margin-bottom: 4px; }
   .hutang-entry-row {
     display: flex;
@@ -1281,7 +1292,7 @@
   .hutang-entry-row:last-child { border-bottom: none; }
   .he-date { font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
   .he-label { font-size: 12.5px; }
-  .he-debt { color: var(--red); white-space: nowrap; }
+  .he-debt { color: var(--danger); white-space: nowrap; }
   .he-payment { color: var(--green); white-space: nowrap; }
 
   /* CATATAN page */
@@ -1326,7 +1337,7 @@
   .note-card .note-del {
     background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px;
   }
-  .note-card .note-del:hover { color: var(--red); }
+  .note-card .note-del:hover { color: var(--danger); }
 
   @media (max-width: 640px) {
     .nav-label { display: none; }
@@ -1536,8 +1547,8 @@
   }
   .bulk-table td {
     padding: 0;
-    border-bottom: 1px solid #E3D9C4;
-    border-right: 1px solid #E3D9C4;
+    border-bottom: 1px solid #D5DDEC;
+    border-right: 1px solid #D5DDEC;
   }
   .bulk-table td:last-child { border-right: none; }
   .bulk-table td.bk-no {
@@ -1557,10 +1568,10 @@
   .modal-bulk .bulk-table input:focus {
     outline: 2px solid var(--red);
     outline-offset: -2px;
-    background: #FFF9EC;
+    background: #F4F8FF;
   }
   .modal-bulk .bulk-table input.bk-price { text-align: right; }
-  .modal-bulk .bulk-table input.bk-err { background: var(--red-dim); }
+  .modal-bulk .bulk-table input.bk-err { background: var(--danger-dim); }
   .bulk-table td.bk-st {
     padding: 0 10px;
     font-size: 12px;
@@ -1571,7 +1582,7 @@
     text-overflow: ellipsis;
   }
   .bulk-table tr.bk-ok td.bk-st { color: var(--green); }
-  .bulk-table tr.bk-bad td.bk-st { color: var(--red); }
+  .bulk-table tr.bk-bad td.bk-st { color: var(--danger); }
   .bulk-table td.bk-x { text-align: center; }
   .bk-del {
     background: none;
@@ -3958,7 +3969,7 @@
     const isPelunasan = record.paymentMethod === 'pelunasan';
 
     const bayarKembaliHtml = isUtang
-      ? `<div class="hist-total-row"><span>Status</span><b class="mono" style="color:var(--red);">BELUM LUNAS</b></div>
+      ? `<div class="hist-total-row"><span>Status</span><b class="mono" style="color:var(--danger);">BELUM LUNAS</b></div>
          <div class="hist-total-row"><span>Pelanggan</span><span>${escapeHtml(record.customerName || '')}</span></div>`
       : `<div class="hist-total-row"><span>Bayar</span><span class="mono">${fmtRupiah(record.bayar || 0)}</span></div>
          <div class="hist-total-row"><span>Kembali</span><span class="mono">${fmtRupiah(record.kembali || 0)}</span></div>`;
@@ -4645,7 +4656,7 @@
       if (c.dirty) t += ' • menunggu backup';
     } else t = '☁ Belum pernah backup' + (c.dirty ? ' • menunggu backup' : '');
     el.textContent = t;
-    el.style.color = (c.hold || c.error) ? 'var(--red, #b3261e)' : 'var(--ink-soft)';
+    el.style.color = (c.hold || c.error) ? 'var(--danger)' : 'var(--ink-soft)';
   }
 
   // Dipanggil setiap data barang disimpan: jadwalkan backup 30 detik setelah perubahan terakhir
