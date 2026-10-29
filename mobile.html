@@ -295,12 +295,22 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   }
 
   // ===== Sheet (panel dari bawah) =====
+  // Tombol Back HP: menutup panel yang terbuka dulu, lalu kembali ke halaman sebelumnya (home = keluar)
+  var shStack = [], shEntry = false, ignorePops = 0;
+  function syncSheetHistory() {
+    setTimeout(() => {
+      const want = shStack.length > 0;
+      if (want && !shEntry) { try { history.pushState({ sheet: 1 }, ''); shEntry = true; } catch (e) {} }
+      else if (!want && shEntry) { shEntry = false; ignorePops++; history.back(); }
+    }, 0);
+  }
   function openSheet(html, opts) {
     opts = opts || {};
     const ov = document.createElement('div'); ov.className = 'ov';
     ov.innerHTML = '<div class="sheet"><div class="grab"></div>' + html + '</div>';
     document.body.appendChild(ov);
-    ov.close = () => { if (!ov.isConnected) return; ov.remove(); if (opts.onClose) opts.onClose(); };
+    shStack.push(ov); syncSheetHistory();
+    ov.close = () => { if (!ov.isConnected) return; ov.remove(); shStack = shStack.filter(x => x !== ov); syncSheetHistory(); if (opts.onClose) opts.onClose(); };
     ov.addEventListener('click', e => { if (e.target === ov && !opts.sticky) ov.close(); });
     return ov;
   }
@@ -309,7 +319,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
     return new Promise(res => {
       const ov = openSheet('<h3>' + esc(o.title || 'Konfirmasi') + '</h3><p style="color:var(--soft);margin:6px 0 4px">' + msg + '</p>' +
         '<div class="row2" style="margin-top:14px"><button class="btn ghost" id="cNo">Batal</button><button class="btn ' + (o.danger ? 'danger' : 'primary') + '" id="cYes">' + esc(o.ok || 'Ya') + '</button></div>',
-        { sticky: true });
+        { sticky: true, onClose: () => res(false) });
       $('#cNo', ov).onclick = () => { ov.close(); res(false); };
       $('#cYes', ov).onclick = () => { ov.close(); res(true); };
     });
@@ -398,7 +408,26 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
     if (v === 'hutang') renderHutang();
     if (v === 'setelan') renderSetelan();
   }
-  $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) go(b.dataset.v); });
+  // Riwayat halaman: home (Kasir) = dasar. Halaman lain didorong di atasnya, jadi Back dari halaman lain kembali ke Kasir.
+  try { history.replaceState({ v: 'kasir' }, ''); } catch (e) {}
+  $('#nav').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const v = b.dataset.v, cur = (history.state && history.state.v) || 'kasir';
+    if (v === 'kasir' && cur !== 'kasir') { history.back(); return; }   // popstate yang menampilkan Kasir
+    go(v);
+    if (v !== 'kasir') { try { if (cur === 'kasir') history.pushState({ v }, ''); else history.replaceState({ v }, ''); } catch (er) {} }
+  });
+  window.addEventListener('popstate', e => {
+    if (ignorePops > 0) { ignorePops--; return; }
+    if (shEntry) {                                       // Back saat ada panel terbuka: tutup panel paling atas
+      shEntry = false;
+      const top = shStack[shStack.length - 1];
+      if (top) top.close(); else syncSheetHistory();
+      syncSheetHistory();                                // kalau masih ada panel bersusun, daftarkan lagi
+      return;
+    }
+    go((e.state && e.state.v) || 'kasir');
+  });
 
   function applyHeader() { $('#tokoName').textContent = settings.name; $('#kasirLbl').textContent = '👤 ' + kasirName; }
 
