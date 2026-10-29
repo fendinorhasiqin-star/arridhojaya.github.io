@@ -799,7 +799,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
 
   // Cetak teks kecil sebagai gambar 1-bit (perintah GS v 0), lebar 384 titik = kertas 58mm
   function rasterLines(texts) {
-    const WPX = 384, FS = 15, LH = 18;
+    const WPX = 384, FS = 20, LH = 23;
     const cv = document.createElement('canvas'); cv.width = WPX;
     const ctx = cv.getContext('2d'); if (!ctx) return null;
     const font = FS + 'px "Courier New", Consolas, monospace';
