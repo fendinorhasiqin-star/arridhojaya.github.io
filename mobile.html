@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1F3F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ARRIDHO JAYA</title>
+<style>
+:root{
+  --paper:#fff;--dim:#EEF2F9;--ink:#0B1F3F;--soft:#2F4468;--muted:#6A7A96;--border:#B4C0D6;
+  --blue:#1F4FB4;--blue-deep:#163A87;--blue-dim:#DCE7F8;--gold:#C9A24A;
+  --danger:#B3261E;--danger-dim:#F8DAD7;--green:#1F6B4A;--green-dim:#D6EEE2;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--dim);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px}
+.mono{font-family:"SF Mono",Consolas,Menlo,monospace}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:16px} /* 16px = iOS tidak zoom saat fokus */
+
+/* Header */
+.top{position:fixed;top:0;left:0;right:0;z-index:20;background:var(--ink);color:#fff;
+  padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;border-bottom:3px solid var(--gold);
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.top .ttl{font-weight:800;font-size:16px;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .who{font-size:12px;opacity:.8;white-space:nowrap}
+main{padding:calc(env(safe-area-inset-top) + 66px) 12px 170px}
+.view{display:none}.view.on{display:block}
+h2.pg{margin:4px 2px 12px;font-size:18px}
+
+/* Bottom nav */
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:20;background:var(--paper);border-top:1px solid var(--border);
+  display:flex;padding-bottom:env(safe-area-inset-bottom)}
+.nav button{flex:1;border:none;background:none;padding:8px 2px 7px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
+.nav button .ic{font-size:20px;line-height:1}
+.nav button .lb{font-size:10.5px;font-weight:700}
+.nav button.on{color:var(--blue)}
+.nav button.on::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;background:var(--gold);border-radius:0 0 3px 3px}
+.badge{position:absolute;top:3px;left:55%;background:var(--danger);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:9px}
+
+/* Cart bar */
+.cartbar{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 62px);z-index:19;
+  background:var(--ink);color:#fff;border-radius:14px;padding:10px 10px 10px 16px;display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 8px 24px rgba(11,31,63,.35)}
+.cartbar small{display:block;font-size:11px;opacity:.75}
+.cartbar b{font-size:20px}
+.cartbar button{background:var(--gold);color:var(--ink);border:none;border-radius:10px;padding:13px 22px;font-weight:800;font-size:15px}
+
+/* Inputs / buttons */
+.search-row{display:flex;gap:8px;margin-bottom:8px}
+.inp{width:100%;padding:12px 13px;border:1px solid var(--border);border-radius:10px;background:var(--paper);color:var(--ink)}
+.inp:focus{outline:2px solid var(--blue);border-color:var(--blue)}
+.icon-btn{flex:none;width:48px;border:1px solid var(--border);background:var(--paper);border-radius:10px;font-size:20px}
+.btn{border:none;border-radius:10px;padding:13px 16px;font-weight:800;font-size:15px}
+.btn.primary{background:var(--blue);color:#fff}.btn.primary:disabled{background:var(--muted)}
+.btn.green{background:var(--green);color:#fff}
+.btn.ghost{background:transparent;border:1px solid var(--border);color:var(--soft)}
+.btn.danger{background:var(--danger-dim);color:var(--danger)}
+.btn.full{width:100%;margin-top:10px}
+.row2{display:flex;gap:8px}.row2>*{flex:1}
+label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12px 0 4px}
+.hint{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.45}
+
+/* Suggest */
+.suggest{background:var(--paper);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px}
+.sg{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px dashed var(--border)}
+.sg:last-child{border-bottom:none}.sg:active{background:var(--blue-dim)}
+.sg .n{font-weight:700}.sg .b{font-size:11px;color:var(--muted)}.sg .p{color:var(--blue);font-weight:800;white-space:nowrap}
+
+/* Cart items */
+.ci{background:var(--paper);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:12px;padding:11px 12px;margin-bottom:9px}
+.ci-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.ci-name{font-weight:800;font-size:15.5px;line-height:1.3}
+.unit{display:inline-block;font-size:11px;font-weight:700;color:var(--muted);background:var(--dim);border-radius:4px;padding:1px 6px;margin-left:5px;vertical-align:middle}
+.x{border:none;background:none;font-size:18px;color:var(--muted);padding:0 4px}
+.ci-bot{display:flex;align-items:center;justify-content:space-between;margin-top:9px;gap:8px}
+.pbtn{border:1px dashed var(--border);background:var(--dim);border-radius:8px;padding:7px 10px;font-weight:700;font-size:14px;color:var(--ink)}
+.qty{display:flex;align-items:center;gap:4px}
+.qty button{width:36px;height:36px;border:1px solid var(--border);background:var(--paper);border-radius:9px;font-size:20px;line-height:1;color:var(--ink)}
+.qty span{min-width:30px;text-align:center;font-weight:800;font-size:16px}
+.ci-tot{font-weight:800;font-size:15px}
+.empty{color:var(--muted);text-align:center;padding:38px 10px;font-size:14px;line-height:1.5}
+@keyframes flash{0%{background:var(--green-dim)}100%{background:var(--paper)}}
+.ci.flash{animation:flash 1s ease-out}
+
+/* Cards (produk / riwayat / hutang) */
+.card{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.card:active{background:var(--blue-dim)}
+.card .t{font-weight:700}.card .s{font-size:12px;color:var(--muted);margin-top:2px}
+.card .v{font-weight:800;white-space:nowrap}
+.card .v.red{color:var(--danger)}.card .v.blue{color:var(--blue)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--border);background:var(--paper);border-radius:20px;padding:7px 14px;font-size:12.5px;font-weight:700;color:var(--soft)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.sum{background:var(--paper);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;font-size:13.5px;color:var(--soft)}
+.sum b{font-size:16px;color:var(--green)}.sum b.red{color:var(--danger)}
+.tag{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px;margin-left:5px;vertical-align:middle}
+.tag.utang{background:var(--danger-dim);color:var(--danger)}.tag.lunas{background:var(--green-dim);color:var(--green)}
+.fab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 76px);z-index:18;width:56px;height:56px;border-radius:50%;
+  border:none;background:var(--blue);color:#fff;font-size:28px;box-shadow:0 6px 18px rgba(31,79,180,.45)}
+.more{width:100%;margin:6px 0}
+
+/* Sheet */
+.ov{position:fixed;inset:0;background:rgba(11,31,63,.55);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--paper);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:8px 18px calc(env(safe-area-inset-bottom) + 18px);
+  max-height:92vh;max-height:92dvh;overflow-y:auto;animation:up .18s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.grab{width:42px;height:4px;border-radius:2px;background:var(--border);margin:4px auto 12px}
+.sheet h3{margin:0 0 6px;font-size:17px}
+.big{font-size:32px;font-weight:900;color:var(--blue);margin:2px 0 12px}
+.seg{display:flex;gap:6px;margin-bottom:6px}
+.seg button{flex:1;padding:12px 6px;border:1px solid var(--border);background:var(--dim);border-radius:10px;font-weight:800;color:var(--soft)}
+.seg button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.seg button.on.u{background:var(--blue);border-color:var(--blue)}
+.cash{font-size:22px;font-weight:800;text-align:right}
+.quick{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.quick button{flex:1 1 28%;padding:12px 6px;border:1.5px solid var(--border);background:var(--paper);border-radius:10px;font-weight:800;color:var(--soft)}
+.quick button.sel{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.kemb{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--ink);padding-top:10px;margin-top:4px;font-weight:700}
+.kemb b{font-size:26px;color:var(--green)}
+.line{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:14px;border-bottom:1px dotted var(--border)}
+.line:last-child{border-bottom:none}
+.ok-ic{font-size:48px;text-align:center}
+.center{text-align:center}
+
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 130px);transform:translateX(-50%);background:var(--ink);color:#fff;
+  padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;z-index:90;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
+.toast.show{opacity:1}.toast.err{background:var(--danger)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="ttl" id="tokoName">TOKO ARRIDHO JAYA</div>
+  <div class="who" id="kasirLbl"></div>
+</header>
+
+<main>
+  <!-- KASIR -->
+  <section class="view on" id="v-kasir">
+    <div class="search-row">
+      <input class="inp mono" id="q" type="text" placeholder="Scan / ketik nama atau barcode" autocomplete="off" enterkeyhint="search">
+      <button class="icon-btn" id="camBtn" title="Scan dengan kamera" type="button">📷</button>
+    </div>
+    <div class="suggest" id="suggest" hidden></div>
+    <div id="cartList"></div>
+  </section>
+
+  <!-- PRODUK -->
+  <section class="view" id="v-produk">
+    <h2 class="pg">Produk</h2>
+    <div class="search-row">
+      <input class="inp mono" id="pq" type="text" placeholder="Cari nama atau barcode" autocomplete="off">
+    </div>
+    <select class="inp" id="psort" style="margin-bottom:10px">
+      <option value="default">Urutan input</option>
+      <option value="newest">Terbaru ditambahkan</option>
+      <option value="name-asc">Nama A → Z</option>
+      <option value="price-asc">Harga termurah</option>
+      <option value="price-desc">Harga termahal</option>
+    </select>
+    <div class="hint" id="pcount" style="margin:0 2px 8px"></div>
+    <div id="pList"></div>
+    <button class="fab" id="pAdd" type="button">+</button>
+  </section>
+
+  <!-- RIWAYAT -->
+  <section class="view" id="v-riwayat">
+    <h2 class="pg">Riwayat Transaksi</h2>
+    <div id="rBody"></div>
+  </section>
+
+  <!-- HUTANG -->
+  <section class="view" id="v-hutang">
+    <h2 class="pg">Hutang / Piutang</h2>
+    <div id="hBody"></div>
+  </section>
+
+  <!-- SETELAN -->
+  <section class="view" id="v-setelan">
+    <h2 class="pg">Setelan</h2>
+    <div class="card" style="display:block">
+      <label class="l" style="margin-top:0">Nama Toko</label>
+      <input class="inp" id="sNama" type="text">
+      <label class="l">Alamat Toko</label>
+      <textarea class="inp" id="sAlamat" rows="3"></textarea>
+      <label class="l">Nama Kasir</label>
+      <input class="inp" id="sKasir" type="text" maxlength="40">
+      <button class="btn primary full" id="sSave" type="button">Simpan</button>
+    </div>
+    <div class="card" style="display:block">
+      <b>☁ Pulihkan barang dari Google Sheets</b>
+      <p class="hint">Data di HP ini terpisah dari komputer kasir. Gunakan ini untuk menyalin daftar barang dari backup Sheets ke HP.</p>
+      <label class="l">URL Web App</label>
+      <input class="inp" id="gUrl" type="text">
+      <label class="l">Token rahasia</label>
+      <input class="inp" id="gToken" type="password">
+      <button class="btn ghost full" id="gRestore" type="button">Pulihkan Barang ke HP Ini</button>
+    </div>
+    <p class="hint" style="padding:0 4px">Versi HP. Data (barang, riwayat, hutang) tersimpan di browser HP ini saja dan tidak otomatis sinkron dengan komputer kasir.</p>
+  </section>
+</main>
+
+<div class="cartbar" id="cartBar" hidden>
+  <div><small id="cbCount">0 barang</small><b class="mono" id="cbTotal">Rp 0</b></div>
+  <button id="cbPay" type="button">Bayar ›</button>
+</div>
+
+<nav class="nav" id="nav">
+  <button class="on" data-v="kasir"><span class="ic">🛒</span><span class="lb">Kasir</span></button>
+  <button data-v="produk"><span class="ic">📦</span><span class="lb">Produk</span></button>
+  <button data-v="riwayat"><span class="ic">🧾</span><span class="lb">Riwayat</span></button>
+  <button data-v="hutang"><span class="ic">📒</span><span class="lb">Hutang</span><span class="badge" id="hBadge" hidden></span></button>
+  <button data-v="setelan"><span class="ic">⚙️</span><span class="lb">Setelan</span></button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  // ===== Util =====
+  const P = 'kasirArridho:'; // sama dengan index.html, jadi data ikut terbaca kalau dibuka dari alamat yang sama
+  const $ = (s, r) => (r || document).querySelector(s);
+  const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
+  const rp = n => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const cleanUnit = u => String(u == null ? '' : u).trim().toLowerCase().slice(0, 12);
+  const digits = s => String(s || '').replace(/\D/g, '');
+  const num = s => parseInt(digits(s), 10) || 0;
+  function getJ(k, def) { try { const r = localStorage.getItem(P + k); return r ? JSON.parse(r) : def; } catch (e) { return def; } }
+  function setJ(k, v) { try { localStorage.setItem(P + k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function getRaw(k) { try { return localStorage.getItem(P + k); } catch (e) { return null; } }
+  function setRaw(k, v) { try { localStorage.setItem(P + k, v); return true; } catch (e) { return false; } }
+  function dateKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  const todayKey = () => dateKey(new Date());
+  function dateLabelOf(key) { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
+  function dateShort(key) { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }); }
+  const nowLabels = () => { const n = new Date(); return {
+    dateLabel: n.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    time: n.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) }; };
+
+  const toastEl = $('#toast'); let toastT;
+  function toast(msg, type) {
+    toastEl.textContent = msg; toastEl.className = 'toast show' + (type === 'err' ? ' err' : '');
+    clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('show'), 1800);
+  }
+  let beepCtx = null;
+  function beep() {
+    try {
+      if (!beepCtx) beepCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = beepCtx.createOscillator(), g = beepCtx.createGain();
+      o.frequency.value = 1500; g.gain.setValueAtTime(.15, beepCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(.001, beepCtx.currentTime + .12);
+      o.connect(g); g.connect(beepCtx.destination); o.start(); o.stop(beepCtx.currentTime + .12);
+    } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) {}
+  }
+  function moneyInput(el) {
+    el.addEventListener('input', () => { const d = digits(el.value); el.value = d ? parseInt(d, 10).toLocaleString('id-ID') : ''; });
+  }
+
+  // ===== Sheet (panel dari bawah) =====
+  function openSheet(html, opts) {
+    opts = opts || {};
+    const ov = document.createElement('div'); ov.className = 'ov';
+    ov.innerHTML = '<div class="sheet"><div class="grab"></div>' + html + '</div>';
+    document.body.appendChild(ov);
+    ov.close = () => { if (!ov.isConnected) return; ov.remove(); if (opts.onClose) opts.onClose(); };
+    ov.addEventListener('click', e => { if (e.target === ov && !opts.sticky) ov.close(); });
+    return ov;
+  }
+  function confirmSheet(msg, o) {
+    o = o || {};
+    return new Promise(res => {
+      const ov = openSheet('<h3>' + esc(o.title || 'Konfirmasi') + '</h3><p style="color:var(--soft);margin:6px 0 4px">' + msg + '</p>' +
+        '<div class="row2" style="margin-top:14px"><button class="btn ghost" id="cNo">Batal</button><button class="btn ' + (o.danger ? 'danger' : 'primary') + '" id="cYes">' + esc(o.ok || 'Ya') + '</button></div>',
+        { sticky: true });
+      $('#cNo', ov).onclick = () => { ov.close(); res(false); };
+      $('#cYes', ov).onclick = () => { ov.close(); res(true); };
+    });
+  }
+
+  // ===== State =====
+  let products = getJ('products', []);
+  let cart = [];
+  let settings = Object.assign({ name: 'TOKO ARRIDHO JAYA', address: 'Jl Tamberu Agung Batumarmar\nTimur Jembatan Laok Jelen' }, getJ('settings', {}));
+  let hutang = getJ('hutang', []);
+  let kasirName = (getRaw('kasirName') || '').trim() || 'Admin';
+  let view = 'kasir';
+  let rDate = null;
+  let pLimit = 60;
+
+  const saveProducts = () => { if (!setJ('products', products)) toast('Gagal menyimpan barang', 'err'); };
+  const saveHutang = () => setJ('hutang', hutang);
+
+  // Sinkron kalau tab/jendela lain mengubah data di browser yang sama
+  window.addEventListener('storage', e => {
+    if (e.key === P + 'products') { products = getJ('products', []); if (view === 'produk') renderProduk(); }
+    if (e.key === P + 'hutang') { hutang = getJ('hutang', []); renderBadge(); if (view === 'hutang') renderHutang(); }
+  });
+
+  // ===== Navigasi =====
+  function go(v) {
+    view = v;
+    document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+    document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    updateCartBar();
+    window.scrollTo(0, 0);
+    if (v === 'produk') renderProduk();
+    if (v === 'riwayat') renderRiwayat();
+    if (v === 'hutang') renderHutang();
+    if (v === 'setelan') renderSetelan();
+  }
+  $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) go(b.dataset.v); });
+
+  function applyHeader() { $('#tokoName').textContent = settings.name; $('#kasirLbl').textContent = '👤 ' + kasirName; }
+
+  // ===== Cari produk =====
+  const strip0 = s => s.replace(/^0+/, '');
+  function matches(q) {
+    q = q.trim().toLowerCase(); if (!q) return [];
+    return products.filter(p => p.name.toLowerCase().includes(q) || (p.barcode && p.barcode.toLowerCase().includes(q)));
+  }
+  function findProduct(raw, exactOnly) {
+    const q = raw.trim().toLowerCase(); if (!q) return null;
+    let m = products.find(p => p.barcode && p.barcode.trim().toLowerCase() === q);
+    if (m) return m;
+    if (exactOnly) return products.find(p => p.name.trim().toLowerCase() === q) || null;
+    if (/^\d{6,}$/.test(q)) {
+      const key = strip0(q);
+      if (key) {
+        const hits = products.filter(p => { const b = (p.barcode || '').trim(); return /^\d+$/.test(b) && strip0(b) === key; });
+        if (hits.length === 1) return hits[0];
+      }
+    }
+    const f = matches(q);
+    return f.length === 1 ? f[0] : null;
+  }
+
+  // ===== Keranjang =====
+  const cartTotal = () => cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const cartQty = () => cart.reduce((s, c) => s + c.qty, 0);
+  let flashId = null;
+  function addToCart(p, qty) {
+    qty = qty || 1;
+    const ex = cart.find(c => c.id === p.id);
+    if (ex) ex.qty += qty;
+    else cart.push({ id: p.id, name: p.name, price: p.price, origPrice: p.price, qty, barcode: p.barcode || '', unit: cleanUnit(p.unit) });
+    flashId = p.id; beep(); renderCart();
+  }
+  function renderCart() {
+    const el = $('#cartList');
+    if (!cart.length) {
+      el.innerHTML = '<div class="empty">🛒<br>Keranjang kosong.<br>Scan barcode, tekan 📷, atau ketik nama barang di atas.</div>';
+    } else {
+      el.innerHTML = cart.slice().reverse().map(c => `
+        <div class="ci${flashId === c.id ? ' flash' : ''}" data-id="${c.id}">
+          <div class="ci-top">
+            <div class="ci-name">${esc(c.name)}${c.unit ? '<span class="unit">' + esc(c.unit) + '</span>' : ''}</div>
+            <button class="x" data-act="del" aria-label="Hapus">🗑</button>
+          </div>
+          <div class="ci-bot">
+            <button class="pbtn mono" data-act="price">${rp(c.price)} ✎</button>
+            <div class="qty"><button data-act="minus">−</button><span>${c.qty}</span><button data-act="plus">+</button></div>
+            <div class="ci-tot mono">${rp(c.price * c.qty)}</div>
+          </div>
+        </div>`).join('');
+    }
+    flashId = null;
+    updateCartBar();
+  }
+  function updateCartBar() {
+    $('#cbCount').textContent = cartQty() + ' barang';
+    $('#cbTotal').textContent = rp(cartTotal());
+    $('#cartBar').hidden = !(view === 'kasir' && cart.length > 0);
+  }
+  $('#cartList').addEventListener('click', e => {
+    const b = e.target.closest('button[data-act]'); if (!b) return;
+    const id = b.closest('.ci').dataset.id;
+    const c = cart.find(x => x.id === id); if (!c) return;
+    const act = b.dataset.act;
+    if (act === 'plus') { c.qty++; renderCart(); }
+    else if (act === 'minus') { c.qty--; if (c.qty <= 0) cart = cart.filter(x => x.id !== id); renderCart(); }
+    else if (act === 'del') { cart = cart.filter(x => x.id !== id); renderCart(); toast('Dihapus: ' + c.name); }
+    else if (act === 'price') editPrice(c);
+  });
+  function editPrice(c) {
+    const ov = openSheet(`<h3>Ubah Harga</h3><p class="hint" style="margin-top:0">${esc(c.name)}</p>
+      <input class="inp mono cash" id="ep" type="text" inputmode="numeric" value="${c.price.toLocaleString('id-ID')}">
+      <div class="row2" style="margin-top:12px"><button class="btn ghost" id="epNo">Batal</button><button class="btn primary" id="epOk">Simpan</button></div>`);
+    const inp = $('#ep', ov); moneyInput(inp);
+    const save = () => { const v = num(inp.value); if (v <= 0) { toast('Harga tidak boleh Rp 0', 'err'); return; } c.price = v; ov.close(); renderCart(); };
+    $('#epNo', ov).onclick = () => ov.close(); $('#epOk', ov).onclick = save;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+    setTimeout(() => { inp.focus(); inp.select(); }, 60);
+  }
+
+  // ===== Pencarian di kasir =====
+  const qEl = $('#q'), sgEl = $('#suggest');
+  function updateSuggest() {
+    const list = matches(qEl.value).slice(0, 8);
+    if (!qEl.value.trim() || !list.length) { sgEl.hidden = true; sgEl.innerHTML = ''; return; }
+    sgEl.innerHTML = list.map(p => `
+      <div class="sg" data-id="${p.id}">
+        <div><div class="n">${esc(p.name)}${p.unit ? ' <span class="unit">' + esc(p.unit) + '</span>' : ''}</div>${p.barcode ? '<div class="b mono">#' + esc(p.barcode) + '</div>' : ''}</div>
+        <div class="p mono">${rp(p.price)}</div>
+      </div>`).join('');
+    sgEl.hidden = false;
+  }
+  qEl.addEventListener('input', updateSuggest);
+  qEl.addEventListener('focus', () => qEl.select());
+  sgEl.addEventListener('click', e => {
+    const r = e.target.closest('.sg'); if (!r) return;
+    const p = products.find(x => x.id === r.dataset.id); if (!p) return;
+    addToCart(p, 1); toast('+ ' + p.name); qEl.value = ''; updateSuggest();
+  });
+  qEl.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const raw = qEl.value.trim(); if (!raw) return;
+    const paren = raw.startsWith('(');
+    const m = findProduct(raw, paren);
+    if (m) { addToCart(m, 1); toast('+ ' + m.name); qEl.value = ''; updateSuggest(); qEl.focus(); }
+    else if (paren) { toast('❌ BARCODE INVALID', 'err'); qEl.value = ''; updateSuggest(); }
+    else if (matches(raw).length === 0) { updateSuggest(); quickAdd(raw); }
+  });
+
+  // ===== Tambah cepat (barang belum terdaftar) =====
+  function quickAdd(raw) {
+    const looksCode = /^\d{6,}$/.test(raw);
+    const ov = openSheet(`<h3>⚡ Barang belum terdaftar</h3>
+      <label class="l">Nama Barang</label><input class="inp" id="qaN" type="text" value="${looksCode ? '' : esc(raw)}">
+      <div class="row2">
+        <div><label class="l">Harga (Rp)</label><input class="inp mono" id="qaP" type="text" inputmode="numeric"></div>
+        <div><label class="l">Qty</label><input class="inp mono" id="qaQ" type="text" inputmode="numeric" value="1"></div>
+      </div>
+      <div class="row2">
+        <div><label class="l">Satuan</label><input class="inp" id="qaU" type="text" maxlength="12" placeholder="opsional"></div>
+        <div><label class="l">Barcode</label><input class="inp mono" id="qaB" type="text" value="${looksCode ? esc(raw) : ''}" placeholder="opsional"></div>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:14px;font-size:13.5px"><input type="checkbox" id="qaS" style="width:18px;height:18px"> Simpan ke daftar produk</label>
+      <div class="row2" style="margin-top:14px"><button class="btn ghost" id="qaNo">Batal</button><button class="btn primary" id="qaOk">Masukkan</button></div>`);
+    moneyInput($('#qaP', ov));
+    $('#qaNo', ov).onclick = () => { ov.close(); qEl.value = ''; updateSuggest(); };
+    $('#qaOk', ov).onclick = () => {
+      const name = $('#qaN', ov).value.trim(), price = num($('#qaP', ov).value), qty = num($('#qaQ', ov).value) || 1;
+      const barcode = $('#qaB', ov).value.trim(), unit = cleanUnit($('#qaU', ov).value);
+      if (!name) { toast('Nama wajib diisi', 'err'); return; }
+      if (price <= 0) { toast('Harga wajib diisi', 'err'); return; }
+      if (barcode) {
+        const dup = products.find(p => p.barcode && p.barcode.trim().toLowerCase() === barcode.toLowerCase());
+        if (dup) { toast('Barcode dipakai: ' + dup.name, 'err'); return; }
+      }
+      const p = { id: uid(), name, price, barcode, unit };
+      if ($('#qaS', ov).checked) { products.push(p); saveProducts(); }
+      addToCart(p, qty); ov.close(); qEl.value = ''; updateSuggest();
+    };
+    setTimeout(() => { ($('#qaN', ov).value ? $('#qaP', ov) : $('#qaN', ov)).focus(); }, 80);
+  }
+
+  // ===== Scan kamera =====
+  if (!('BarcodeDetector' in window)) $('#camBtn').style.display = 'none';
+  $('#camBtn').onclick = async () => {
+    let stream = null, timer = null, det;
+    try { det = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'] }); }
+    catch (e) { try { det = new BarcodeDetector(); } catch (e2) { toast('Scan kamera tidak didukung', 'err'); return; } }
+    const stop = () => { clearInterval(timer); if (stream) stream.getTracks().forEach(t => t.stop()); };
+    const ov = openSheet(`<h3>📷 Scan Barcode</h3>
+      <video id="cam" playsinline muted style="width:100%;border-radius:12px;background:#000;max-height:50vh;object-fit:cover"></video>
+      <p class="hint center" id="camMsg">Arahkan kamera ke barcode. Barang masuk otomatis.</p>
+      <button class="btn ghost full" id="camClose">Tutup</button>`, { sticky: true, onClose: stop });
+    $('#camClose', ov).onclick = () => ov.close();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    } catch (e) { ov.close(); toast('Kamera tidak bisa dibuka (butuh HTTPS & izin kamera)', 'err'); return; }
+    const video = $('#cam', ov); video.srcObject = stream; await video.play().catch(() => {});
+    let lastCode = '', lastT = 0, busy = false;
+    timer = setInterval(async () => {
+      if (busy || !ov.isConnected) return; busy = true;
+      try {
+        const r = await det.detect(video);
+        if (r.length) {
+          const code = r[0].rawValue, now = Date.now();
+          if (code !== lastCode || now - lastT > 2000) {
+            lastCode = code; lastT = now;
+            const p = findProduct(code, true) || findProduct(code, false);
+            if (p) { addToCart(p, 1); $('#camMsg', ov).textContent = '✅ ' + p.name; }
+            else { $('#camMsg', ov).textContent = '❌ Tidak terdaftar: ' + code; try { navigator.vibrate && navigator.vibrate([60, 40, 60]); } catch (e) {} }
+          }
+        }
+      } catch (e) {}
+      busy = false;
+    }, 350);
+  };
+
+  // ===== Pembayaran =====
+  $('#cbPay').onclick = openPay;
+  function cashSteps(t) {
+    if (t < 10000) return [5000, 10000, 20000, 50000, 100000];
+    if (t < 100000) return [10000, 50000, 100000];
+    if (t < 1000000) return [50000, 100000, 200000];
+    return [100000, 500000, 1000000];
+  }
+  function openPay() {
+    if (!cart.length) { toast('Keranjang kosong', 'err'); return; }
+    const total = cartTotal(); let method = 'tunai';
+    const ov = openSheet(`<h3>Pembayaran</h3>
+      <div class="big mono">${rp(total)}</div>
+      <div class="seg"><button data-m="tunai" class="on">💵 Tunai</button><button data-m="utang" class="u">📒 Utang</button></div>
+      <div id="pT">
+        <label class="l">Uang diterima</label>
+        <input class="inp mono cash" id="pB" type="text" inputmode="numeric" placeholder="0" autocomplete="off">
+        <div class="quick" id="pQ"></div>
+        <div class="kemb"><span>Kembalian</span><b class="mono" id="pK">Rp 0</b></div>
+      </div>
+      <div id="pU" hidden>
+        <label class="l">Nama pelanggan</label>
+        <input class="inp" id="pN" type="text" list="dlN" autocomplete="off" placeholder="Nama pelanggan">
+        <datalist id="dlN">${hutang.map(c => '<option value="' + esc(c.name) + '">').join('')}</datalist>
+        <label class="l">No. HP (opsional)</label>
+        <input class="inp mono" id="pH" type="tel" placeholder="08xxxxxxxxxx">
+      </div>
+      <button class="btn green full" id="pOk" disabled>✅ Selesai</button>
+      <button class="btn ghost full" id="pNo">Kembali</button>`);
+    const bayarEl = $('#pB', ov), okBtn = $('#pOk', ov);
+    moneyInput(bayarEl);
+    function upd() {
+      if (method === 'tunai') {
+        const b = num(bayarEl.value);
+        $('#pK', ov).textContent = rp(Math.max(0, b - total));
+        okBtn.disabled = b < total;
+        const sug = cashSteps(total).map(s => (Math.floor(total / s) + 1) * s);
+        const amts = [total, ...[...new Set(sug)].sort((a, b) => a - b)].slice(0, 6);
+        $('#pQ', ov).innerHTML = amts.map(a => `<button type="button" data-a="${a}" class="${a === b ? 'sel' : ''}">${a === total ? 'Uang Pas' : rp(a).replace('Rp ', '')}</button>`).join('');
+      } else okBtn.disabled = !$('#pN', ov).value.trim();
+    }
+    bayarEl.addEventListener('input', upd);
+    $('#pN', ov).addEventListener('input', upd);
+    $('#pQ', ov).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; bayarEl.value = parseInt(b.dataset.a, 10).toLocaleString('id-ID'); upd(); });
+    ov.querySelector('.seg').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      method = b.dataset.m;
+      ov.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
+      $('#pT', ov).hidden = method !== 'tunai'; $('#pU', ov).hidden = method !== 'utang';
+      upd();
+    });
+    $('#pNo', ov).onclick = () => ov.close();
+    okBtn.onclick = () => {
+      okBtn.disabled = true;
+      const { dateLabel, time } = nowLabels();
+      const items = cart.map(c => ({ ...c }));
+      const itemsLabel = items.map(c => c.name + ' x' + c.qty).join(', ');
+      const key = todayKey();
+      const list = getJ('history:' + key, []);
+      let rec, kembali = 0;
+      if (method === 'utang') {
+        const nama = $('#pN', ov).value.trim(), hp = $('#pH', ov).value.trim();
+        let cust = hutang.find(c => c.name.trim().toLowerCase() === nama.toLowerCase());
+        if (!cust) { cust = { id: uid(), name: nama, phone: hp, entries: [] }; hutang.push(cust); }
+        else if (hp && !cust.phone) cust.phone = hp;
+        const debtEntryId = uid();
+        cust.entries.push({ type: 'debt', id: debtEntryId, date: key, dateLabel, time, itemsLabel, items, total });
+        saveHutang();
+        rec = { id: uid(), time, dateLabel, itemsLabel, items, total, bayar: 0, kembali: 0, note: '', kasir: kasirName,
+          paymentMethod: 'utang', customerId: cust.id, customerName: cust.name, debtEntryId };
+      } else {
+        const bayar = num(bayarEl.value); kembali = bayar - total;
+        rec = { id: uid(), time, dateLabel, itemsLabel, items, total, bayar, kembali, note: '', kasir: kasirName, paymentMethod: 'tunai' };
+      }
+      list.unshift(rec);
+      const saved = setJ('history:' + key, list);
+      cart = []; renderCart(); renderBadge(); ov.close(); qEl.value = ''; updateSuggest();
+      if (!saved) toast('⚠️ Transaksi GAGAL tersimpan (penyimpanan penuh)', 'err');
+      if (method === 'tunai') {
+        const s = openSheet(`<div class="ok-ic">✅</div><h3 class="center">Transaksi Selesai</h3>
+          <div class="kemb"><span>Kembalian</span><b class="mono">${rp(kembali)}</b></div>
+          <button class="btn primary full" id="sOk">OK</button>`, { sticky: true });
+        $('#sOk', s).onclick = () => s.close();
+        setTimeout(() => $('#sOk', s) && $('#sOk', s).focus(), 60);
+      } else toast('Utang dicatat — ' + rec.customerName + ': ' + rp(total));
+    };
+    setTimeout(() => bayarEl.focus(), 80);
+    upd();
+  }
+
+  // ===== Produk =====
+  const collator = new Intl.Collator('id', { numeric: true, sensitivity: 'base' });
+  function sortList(list, mode) {
+    const a = list.slice();
+    if (mode === 'newest') return a.reverse();
+    if (mode === 'name-asc') return a.sort((x, y) => collator.compare(x.name, y.name));
+    if (mode === 'price-asc') return a.sort((x, y) => (x.price - y.price) || collator.compare(x.name, y.name));
+    if (mode === 'price-desc') return a.sort((x, y) => (y.price - x.price) || collator.compare(x.name, y.name));
+    return a;
+  }
+  function renderProduk() {
+    const term = $('#pq').value.trim().toLowerCase();
+    const filtered = term ? products.filter(p => p.name.toLowerCase().includes(term) || (p.barcode && p.barcode.toLowerCase().includes(term))) : products;
+    const list = sortList(filtered, $('#psort').value);
+    $('#pcount').textContent = term ? 'Menampilkan ' + list.length + ' dari ' + products.length + ' barang' : 'Total ' + products.length + ' barang';
+    if (!products.length) { $('#pList').innerHTML = '<div class="empty">Belum ada barang.<br>Tekan + untuk menambah, atau pulihkan dari Google Sheets di menu Setelan.</div>'; return; }
+    if (!list.length) { $('#pList').innerHTML = '<div class="empty">Barang tidak ditemukan.</div>'; return; }
+    const shown = list.slice(0, pLimit);
+    $('#pList').innerHTML = shown.map(p => `
+      <div class="card" data-id="${p.id}">
+        <div style="min-width:0"><div class="t">${esc(p.name)}${p.unit ? '<span class="unit">' + esc(p.unit) + '</span>' : ''}</div>
+          <div class="s mono">${p.barcode ? esc(p.barcode) : 'tanpa barcode'}</div></div>
+        <div class="v blue mono">${rp(p.price)}</div>
+      </div>`).join('') +
+      (list.length > shown.length ? '<button class="btn ghost more" id="pMore">Tampilkan lebih banyak (' + (list.length - shown.length) + ')</button>' : '');
+    const more = $('#pMore'); if (more) more.onclick = () => { pLimit += 60; renderProduk(); };
+  }
+  $('#pq').addEventListener('input', () => { pLimit = 60; renderProduk(); });
+  $('#psort').addEventListener('change', () => { pLimit = 60; renderProduk(); });
+  $('#pList').addEventListener('click', e => {
+    const c = e.target.closest('.card'); if (!c) return;
+    const p = products.find(x => x.id === c.dataset.id); if (p) productSheet(p);
+  });
+  $('#pAdd').onclick = () => productSheet(null);
+  function productSheet(p) {
+    const ov = openSheet(`<h3>${p ? 'Edit Barang' : 'Tambah Barang'}</h3>
+      <label class="l">Nama Barang</label><input class="inp" id="mN" type="text" value="${p ? esc(p.name) : ''}">
+      <div class="row2">
+        <div><label class="l">Harga (Rp)</label><input class="inp mono" id="mP" type="text" inputmode="numeric" value="${p ? p.price.toLocaleString('id-ID') : ''}"></div>
+        <div><label class="l">Satuan</label><input class="inp" id="mU" type="text" maxlength="12" value="${p ? esc(cleanUnit(p.unit)) : ''}" placeholder="pcs, dus, kg"></div>
+      </div>
+      <label class="l">Barcode (opsional)</label><input class="inp mono" id="mB" type="text" value="${p && p.barcode ? esc(p.barcode) : ''}">
+      <div class="row2" style="margin-top:14px"><button class="btn ghost" id="mNo">Batal</button><button class="btn primary" id="mOk">${p ? 'Simpan' : 'Tambah'}</button></div>
+      ${p ? '<button class="btn danger full" id="mDel">Hapus Barang</button>' : ''}`);
+    moneyInput($('#mP', ov));
+    $('#mNo', ov).onclick = () => ov.close();
+    $('#mOk', ov).onclick = () => {
+      const name = $('#mN', ov).value.trim(), price = num($('#mP', ov).value);
+      const unit = cleanUnit($('#mU', ov).value), barcode = $('#mB', ov).value.trim();
+      if (!name) { toast('Nama wajib diisi', 'err'); return; }
+      if (price <= 0) { toast('Harga wajib diisi', 'err'); return; }
+      if (barcode) {
+        const dup = products.find(x => x.barcode && x.barcode.trim().toLowerCase() === barcode.toLowerCase() && (!p || x.id !== p.id));
+        if (dup) { toast('Barcode dipakai: ' + dup.name, 'err'); return; }
+      }
+      if (p) { const i = products.findIndex(x => x.id === p.id); products[i] = { ...products[i], name, price, unit, barcode }; }
+      else products.push({ id: uid(), name, price, unit, barcode });
+      saveProducts(); ov.close(); renderProduk(); toast('Barang tersimpan');
+    };
+    if (p) $('#mDel', ov).onclick = async () => {
+      if (!(await confirmSheet('Hapus "' + esc(p.name) + '" dari daftar barang?', { title: 'Hapus Barang', ok: 'Hapus', danger: true }))) return;
+      products = products.filter(x => x.id !== p.id); saveProducts(); ov.close(); renderProduk(); toast('Barang dihapus');
+    };
+    setTimeout(() => $('#mN', ov).focus(), 80);
+  }
+
+  // ===== Riwayat =====
+  function historyDates() {
+    const set = new Set([todayKey()]);
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(P + 'history:')) set.add(k.slice((P + 'history:').length)); } } catch (e) {}
+    return Array.from(set).filter(Boolean).sort().reverse();
+  }
+  function renderRiwayat() {
+    const dates = historyDates();
+    if (!rDate || !dates.includes(rDate)) rDate = todayKey();
+    const list = getJ('history:' + rDate, []);
+    let kas = 0, utangBaru = 0;
+    list.forEach(h => { if (h.paymentMethod === 'utang') utangBaru += h.total; else kas += h.total; });
+    let html = '<div class="chips">' + dates.map(d => `<button class="chip${d === rDate ? ' on' : ''}" data-d="${d}">${d === todayKey() ? 'Hari ini' : dateShort(d)}</button>`).join('') + '</div>';
+    if (!list.length) html += '<div class="empty">Belum ada transaksi pada<br>' + esc(dateLabelOf(rDate)) + '.</div>';
+    else {
+      html += `<div class="sum"><span>Kas masuk${utangBaru ? '<br><small>+ utang baru ' + rp(utangBaru) + '</small>' : ''}</span><b class="mono">${rp(kas)}</b></div>`;
+      html += list.map((h, i) => {
+        const tag = h.paymentMethod === 'utang' ? '<span class="tag utang">Belum Lunas</span>' : h.paymentMethod === 'pelunasan' ? '<span class="tag lunas">Pelunasan</span>' : '';
+        return `<div class="card" data-i="${i}"><div style="min-width:0"><div class="s mono" style="margin:0 0 2px">${esc(h.time)}</div>
+          <div class="t" style="font-weight:600;font-size:13.5px">${esc(h.itemsLabel || '')}${tag}</div></div><div class="v mono">${rp(h.total)}</div></div>`;
+      }).join('');
+    }
+    $('#rBody').innerHTML = html;
+  }
+  $('#rBody').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (chip) { rDate = chip.dataset.d; renderRiwayat(); return; }
+    const c = e.target.closest('.card'); if (!c) return;
+    const list = getJ('history:' + rDate, []); const rec = list[parseInt(c.dataset.i, 10)]; if (rec) receiptSheet(rec, rDate);
+  });
+  function receiptSheet(rec, key) {
+    const items = Array.isArray(rec.items) && rec.items.length ? rec.items : [{ name: rec.itemsLabel || 'Transaksi', price: rec.total, qty: 1 }];
+    const utang = rec.paymentMethod === 'utang', lunas = rec.paymentMethod === 'pelunasan';
+    const ov = openSheet(`<div class="center"><b style="font-size:16px">${esc(settings.name)}</b>
+      <div class="hint mono" style="margin:2px 0 10px">${esc(rec.dateLabel || '')} ${esc(rec.time || '')} • ${esc(rec.kasir || '')}</div></div>
+      ${items.map(i => `<div class="line"><span>${esc(i.name)} x${i.qty}${i.unit ? ' ' + esc(i.unit) : ''}</span><span class="mono">${rp(i.price * i.qty)}</span></div>`).join('')}
+      <div class="line" style="border-top:1px dashed var(--border);margin-top:6px"><b>Total</b><b class="mono">${rp(rec.total)}</b></div>
+      ${utang ? `<div class="line"><span>Status</span><b style="color:var(--danger)">BELUM LUNAS</b></div><div class="line"><span>Pelanggan</span><span>${esc(rec.customerName || '')}</span></div>`
+        : lunas ? `<div class="line"><span>Pelanggan</span><span>${esc(rec.customerName || '')}</span></div>`
+        : `<div class="line"><span>Bayar</span><span class="mono">${rp(rec.bayar)}</span></div><div class="line"><span>Kembali</span><span class="mono">${rp(rec.kembali)}</span></div>`}
+      <button class="btn ghost full" id="rcClose">Tutup</button>
+      ${lunas ? '' : '<button class="btn danger full" id="rcDel">Hapus Transaksi</button>'}`);
+    $('#rcClose', ov).onclick = () => ov.close();
+    const del = $('#rcDel', ov);
+    if (del) del.onclick = async () => {
+      if (!(await confirmSheet('Hapus transaksi jam ' + esc(rec.time || '') + ' senilai ' + rp(rec.total) + '? Tidak bisa dikembalikan.', { title: 'Hapus Transaksi', ok: 'Hapus', danger: true }))) return;
+      const list = getJ('history:' + key, []); const idx = list.findIndex(r => r.id === rec.id);
+      if (idx !== -1) { list.splice(idx, 1); setJ('history:' + key, list); }
+      if (utang && rec.customerId) {
+        const cust = hutang.find(c => c.id === rec.customerId);
+        if (cust) { cust.entries = cust.entries.filter(en => en.id !== rec.debtEntryId); saveHutang(); }
+      }
+      ov.close(); renderRiwayat(); renderBadge(); toast('Transaksi dihapus');
+    };
+  }
+
+  // ===== Hutang =====
+  const debtOf = c => c.entries.reduce((s, e) => s + (e.type === 'debt' ? e.total : -e.amount), 0);
+  function compact(n) { n = Math.round(n || 0); if (n >= 1e6) { const j = n / 1e6; return (Number.isInteger(j) ? j : j.toFixed(1)).toString().replace('.', ',') + 'jt'; } return n >= 1000 ? Math.round(n / 1000) + 'rb' : String(n); }
+  function renderBadge() {
+    const t = hutang.reduce((s, c) => s + Math.max(0, debtOf(c)), 0);
+    const b = $('#hBadge'); b.hidden = t <= 0; b.textContent = compact(t);
+  }
+  function renderHutang() {
+    const rows = hutang.map(c => ({ c, sisa: debtOf(c) })).filter(x => x.c.entries.length).sort((a, b) => b.sisa - a.sisa);
+    const total = rows.reduce((s, x) => s + Math.max(0, x.sisa), 0);
+    let html = `<div class="sum"><span>Total piutang belum lunas</span><b class="red mono">${rp(total)}</b></div>`;
+    html += rows.length ? rows.map(({ c, sisa }) => `<div class="card" data-id="${c.id}"><div><div class="t">${esc(c.name)}</div>${c.phone ? '<div class="s mono">' + esc(c.phone) + '</div>' : ''}</div>
+      <div class="v mono ${sisa > 0 ? 'red' : ''}" ${sisa <= 0 ? 'style="color:var(--green)"' : ''}>${sisa <= 0 ? 'LUNAS' : rp(sisa)}</div></div>`).join('') : '<div class="empty">Belum ada catatan hutang.</div>';
+    $('#hBody').innerHTML = html; renderBadge();
+  }
+  $('#hBody').addEventListener('click', e => { const c = e.target.closest('.card'); if (c) hutangSheet(c.dataset.id); });
+  function hutangSheet(id) {
+    const c = hutang.find(x => x.id === id); if (!c) return;
+    const sisa = debtOf(c);
+    const entries = c.entries.slice().sort((a, b) => ((a.date || '') + (a.time || '')) < ((b.date || '') + (b.time || '')) ? 1 : -1);
+    const ov = openSheet(`<h3>${esc(c.name)}</h3>${c.phone ? '<div class="hint mono" style="margin:0 0 6px">' + esc(c.phone) + '</div>' : ''}
+      <div class="sum"><span>Sisa utang</span><b class="red mono">${rp(Math.max(0, sisa))}</b></div>
+      ${entries.map(e => e.type === 'debt'
+        ? `<div class="line"><div><div class="hint mono" style="margin:0">${esc(e.dateLabel || '')} ${esc(e.time || '')}</div>${esc(e.itemsLabel || 'Transaksi')}</div><b class="mono" style="color:var(--danger);white-space:nowrap">+${rp(e.total)}</b></div>`
+        : `<div class="line"><div><div class="hint mono" style="margin:0">${esc(e.dateLabel || '')} ${esc(e.time || '')}</div>Pembayaran${e.note ? ' — ' + esc(e.note) : ''}</div><b class="mono" style="color:var(--green);white-space:nowrap">−${rp(e.amount)}</b></div>`).join('')}
+      ${sisa > 0 ? '<button class="btn primary full" id="hdPay">Catat Pembayaran</button>' : ''}
+      <button class="btn ghost full" id="hdClose">Tutup</button>`);
+    $('#hdClose', ov).onclick = () => ov.close();
+    const pay = $('#hdPay', ov);
+    if (pay) pay.onclick = () => { ov.close(); paySheet(c); };
+  }
+  function paySheet(c) {
+    const sisa = debtOf(c);
+    const ov = openSheet(`<h3>Catat Pembayaran</h3><p class="hint" style="margin-top:0">${esc(c.name)} — sisa ${rp(sisa)}</p>
+      <label class="l">Jumlah dibayar (Rp)</label><input class="inp mono cash" id="hpA" type="text" inputmode="numeric" value="${Math.max(0, sisa).toLocaleString('id-ID')}">
+      <label class="l">Catatan (opsional)</label><input class="inp" id="hpN" type="text" placeholder="cth. cicilan pertama">
+      <div class="row2" style="margin-top:14px"><button class="btn ghost" id="hpNo">Batal</button><button class="btn primary" id="hpOk">Simpan</button></div>`);
+    moneyInput($('#hpA', ov));
+    $('#hpNo', ov).onclick = () => ov.close();
+    $('#hpOk', ov).onclick = () => {
+      const amount = num($('#hpA', ov).value); if (amount <= 0) { toast('Jumlah harus lebih dari Rp 0', 'err'); return; }
+      const note = $('#hpN', ov).value.trim();
+      const { dateLabel, time } = nowLabels(); const key = todayKey();
+      c.entries.push({ type: 'payment', id: uid(), date: key, dateLabel, time, amount, note });
+      saveHutang();
+      const list = getJ('history:' + key, []);
+      list.unshift({ id: uid(), time, dateLabel, itemsLabel: 'Pelunasan Utang — ' + c.name, items: [], total: amount, bayar: amount, kembali: 0, note,
+        kasir: kasirName, paymentMethod: 'pelunasan', customerId: c.id, customerName: c.name });
+      setJ('history:' + key, list);
+      ov.close(); renderHutang(); toast('Pembayaran dicatat — ' + rp(amount));
+    };
+    setTimeout(() => { const i = $('#hpA', ov); i.focus(); i.select(); }, 80);
+  }
+
+  // ===== Setelan =====
+  function gsCfg() { return Object.assign({ url: 'https://script.google.com/macros/s/AKfycbxUbhfyJVLirkyS3aTDKMaJgMP4-P-JQd_GPyI6nyGPn9VVbky9fR5yy1unCnhao3PJhA/exec' }, getJ('gsheet', {})); }
+  function renderSetelan() {
+    $('#sNama').value = settings.name; $('#sAlamat').value = settings.address; $('#sKasir').value = kasirName;
+    const g = gsCfg(); $('#gUrl').value = g.url || ''; $('#gToken').value = g.token || '';
+  }
+  $('#sSave').onclick = () => {
+    const name = $('#sNama').value.trim(); if (!name) { toast('Nama toko wajib diisi', 'err'); return; }
+    settings = { name, address: $('#sAlamat').value.trim() }; setJ('settings', settings);
+    kasirName = $('#sKasir').value.trim() || 'Admin'; setRaw('kasirName', kasirName);
+    applyHeader(); toast('Setelan tersimpan');
+  };
+  $('#gRestore').onclick = async () => {
+    const c = gsCfg(); c.url = $('#gUrl').value.trim(); c.token = $('#gToken').value.trim(); setJ('gsheet', c);
+    if (!c.url || !c.token) { toast('Isi URL dan token dulu', 'err'); return; }
+    if (!navigator.onLine) { toast('Tidak ada internet', 'err'); return; }
+    toast('Mengambil data…');
+    try {
+      const res = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.token, action: 'restore' }) });
+      const r = await res.json(); if (!r.ok) throw new Error(r.error || 'Gagal');
+      const list = (r.products || []).filter(p => p.name && p.price > 0);
+      if (!list.length) { toast('Sheets kosong', 'err'); return; }
+      if (!(await confirmSheet('Ganti ' + products.length + ' barang di HP ini dengan ' + list.length + ' barang dari Google Sheets?', { title: 'Pulihkan dari Sheets', ok: 'Ganti' }))) return;
+      products = list.map(p => ({ id: p.id || uid(), name: p.name, price: p.price, barcode: p.barcode || '', unit: cleanUnit(p.unit) }));
+      saveProducts(); toast('Dipulihkan: ' + list.length + ' barang');
+    } catch (e) { toast('Gagal: ' + String(e.message || e).slice(0, 60), 'err'); }
+  };
+
+  // ===== Init =====
+  applyHeader(); renderCart(); renderBadge();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && view === 'riwayat') renderRiwayat(); });
+})();
+</script>
+</body>
+</html>
