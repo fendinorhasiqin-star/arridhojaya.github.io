@@ -86,6 +86,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
 .ci.flash{animation:flash 1s ease-out}
 
 /* Cards (produk / riwayat / hutang) */
+#pList .card{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .card{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
 .card:active{background:var(--blue-dim)}
 .card .t{font-weight:700}.card .s{font-size:12px;color:var(--muted);margin-top:2px}
@@ -134,7 +135,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
 .print-only{display:none}
 #printReceipt{width:100%;box-sizing:border-box;padding:1.5mm 2.5mm 0;font-family:"SF Mono",Consolas,Menlo,monospace;color:#000;font-size:12px;line-height:1.4}
 .pr-store{text-align:center;font-weight:800;font-size:1.25em;text-transform:uppercase;margin-bottom:2px}
-.pr-address,.pr-line{text-align:center;font-size:.875em;margin-bottom:3px;line-height:1.3}
+.pr-address,.pr-line{text-align:center;font-size:.68em;margin-bottom:1px;line-height:1.2}
 .pr-rule{border-top:1px dashed #000;margin:4px 0}
 .pr-item{margin-bottom:4px}.pr-item .pi-name{font-weight:700}
 .pr-item .pi-sub,.pr-row{display:flex;justify-content:space-between;padding:1px 0}
@@ -209,13 +210,15 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       <button class="btn primary full" id="sSave" type="button">Simpan</button>
     </div>
     <div class="card" style="display:block">
-      <b>☁ Pulihkan barang dari Google Sheets</b>
+      <b>☁ Backup &amp; Pulihkan Google Sheets</b>
       <p class="hint">Data di HP ini terpisah dari komputer kasir. Gunakan ini untuk menyalin daftar barang dari backup Sheets ke HP.</p>
       <label class="l">URL Web App</label>
       <input class="inp" id="gUrl" type="text">
       <label class="l">Token rahasia</label>
       <input class="inp" id="gToken" type="password">
-      <button class="btn ghost full" id="gRestore" type="button">Pulihkan Barang ke HP Ini</button>
+      <p class="hint" id="gStatus" style="margin:0 0 10px"></p>
+      <p class="hint">Backup berjalan otomatis setiap kali barang diubah dan <b>mengganti seluruh isi sheet</b> dengan daftar barang di HP ini.</p>
+      <button class="btn ghost full" id="gRestore" type="button" style="margin-top:12px">Pulihkan Barang ke HP Ini</button>
     </div>
     <div class="card" style="display:block">
       <b>🖨️ Printer</b>
@@ -322,7 +325,59 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   let rDate = null;
   let pLimit = 60;
 
-  const saveProducts = () => { if (!setJ('products', products)) toast('Gagal menyimpan barang', 'err'); };
+  const saveProducts = () => { if (!setJ('products', products)) toast('Gagal menyimpan barang', 'err'); else autoBackupSoon(); };
+
+  // ===== Backup otomatis ke Google Sheets =====
+  // Aman: tidak pernah kirim daftar kosong, mengecek jumlah barang di Sheets lebih dulu sebagai patokan,
+  // menahan backup kalau barang di HP turun drastis, dan mengulang otomatis kalau offline/gagal.
+  var abTimer = null, abBusy = false, abSkip = false, abVer = 0;
+  function gsStatusText() {
+    const c = gsCfg(), st = getJ('gsync', {});
+    if (!c.url || !c.token) return 'Backup otomatis belum aktif: isi URL dan token dulu.';
+    if (!st.at) return 'Backup otomatis aktif. Akan mulai mengirim saat ada perubahan barang.';
+    const t = st.at ? new Date(st.at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+    return 'Backup otomatis aktif. Terakhir sinkron: ' + t + ' (' + st.base + ' barang)' + (st.pending ? ' — ada perubahan menunggu dikirim' : '') + '.';
+  }
+  function gsRefreshStatus() { const el = document.getElementById('gStatus'); if (el) el.textContent = gsStatusText(); }
+  function autoBackupSoon() {
+    if (abSkip) return;
+    const c = gsCfg(); if (!c.url || !c.token) return;
+    const st = getJ('gsync', {}); st.pending = true; setJ('gsync', st); abVer++;
+    clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 3000);
+    gsRefreshStatus();
+  }
+  async function runAutoBackup() {
+    if (abBusy) { abTimer = setTimeout(runAutoBackup, 3000); return; }
+    const st = getJ('gsync', {}); if (!st.pending) return;
+    const c = gsCfg(); if (!c.url || !c.token) return;
+    if (!navigator.onLine) return;                       // dicoba lagi saat online
+    if (!products.length) return;                        // jangan kirim kosong
+    abBusy = true;
+    if (!st.base) {                                      // patokan awal: cek jumlah barang di Sheets dulu
+      try {
+        const rr = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.token, action: 'restore' }) });
+        const j = await rr.json(); if (!j.ok) throw new Error(j.error || 'Gagal');
+        st.base = (j.products || []).length; setJ('gsync', st);
+      } catch (e) { abBusy = false; toast('Backup otomatis gagal: ' + String(e.message || e).slice(0, 50), 'err'); clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 60000); return; }
+    }
+    abBusy = false;
+    if (st.base >= 10 && products.length < st.base * 0.8) {
+      toast('Backup otomatis ditahan: barang di HP jauh lebih sedikit dari Sheets. Cek di Setelan.', 'err'); return;
+    }
+    abBusy = true; const ver = abVer;
+    try {
+      const res = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: c.token, action: 'backup', products: products.map(p => ({ id: p.id, name: p.name, barcode: p.barcode || '', unit: p.unit || '', price: p.price })) }) });
+      const r = await res.json(); if (!r.ok) throw new Error(r.error || 'Gagal');
+      setJ('gsync', { base: r.count != null ? r.count : products.length, at: Date.now(), pending: ver !== abVer });
+      toast('☁ Backup otomatis tersimpan');
+    } catch (e) {
+      toast('Backup otomatis gagal, dicoba lagi sebentar lagi', 'err');
+      clearTimeout(abTimer); abTimer = setTimeout(runAutoBackup, 60000);
+    }
+    abBusy = false; gsRefreshStatus();
+  }
+  window.addEventListener('online', () => { if (getJ('gsync', {}).pending) runAutoBackup(); });
+  setTimeout(() => { if (getJ('gsync', {}).pending) runAutoBackup(); }, 4000);
   const saveHutang = () => setJ('hutang', hutang);
 
   // Sinkron kalau tab/jendela lain mengubah data di browser yang sama
@@ -561,7 +616,8 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
 
   // ===== Cetak Bluetooth langsung (ESC/POS via Web Bluetooth) =====
   const BT_SERVICES = [0x18f0, 0xff00, 0xffe0, 0xffe5, 0xfee7, 0xffb0, 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-4ae5-8fa9-9fafd205e455'];
-  const W = 32; // lebar kertas 58mm = 32 karakter
+  const W = 32; // lebar kertas 58mm = 32 karakter (Font A)
+  const WS = 42; // Font B (kecil) = 42 karakter
   let btDev = null, btChar = null;
   const btSupported = () => !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
   const printMode = () => getRaw('printMode') || (btSupported() ? 'bt' : 'system');
@@ -592,7 +648,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       for (const ch of s) out.push(ch.charCodeAt(0));
     };
     const line = s => { txt(s); push(0x0A); };
-    const wrap = s => { const r = []; s = String(s); while (s.length > W) { r.push(s.slice(0, W)); s = s.slice(W); } r.push(s); return r; };
+    const wrap = (s, w) => { w = w || W; const r = []; s = String(s); while (s.length > w) { r.push(s.slice(0, w)); s = s.slice(w); } r.push(s); return r; };
     const lr = (a, b) => {
       a = String(a); b = String(b);
       if (a.length > W - b.length - 1) a = a.slice(0, Math.max(0, W - b.length - 1));
@@ -604,9 +660,14 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
 
     push(0x1B, 0x40);                                   // reset printer
     center(); bold(true); wrap(String(settings.name).toUpperCase()).forEach(line); bold(false);
-    wrap(String(settings.address).replace(/\n/g, ' ')).forEach(line);
-    line((rec.dateLabel || '') + '  ' + (rec.time || ''));
-    if (rec.kasir) line('Kasir: ' + rec.kasir);
+    // Alamat, tanggal, kasir: font kecil (Font B, 42 karakter per baris) agar hemat ruang
+    push(0x1B, 0x4D, 1);
+    wrap(String(settings.address).replace(/\n/g, ' '), WS).forEach(line);
+    const tgl = (rec.dateLabel || '') + '  ' + (rec.time || '');
+    const ksr = rec.kasir ? 'Kasir: ' + rec.kasir : '';
+    if (ksr && (tgl + '  ' + ksr).length <= WS) line(tgl + '  ' + ksr);
+    else { line(tgl); if (ksr) wrap(ksr, WS).forEach(line); }
+    push(0x1B, 0x4D, 0);
     left(); line(rule);
     items.forEach(c => {
       wrap(c.name).forEach(line);
@@ -763,7 +824,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
     const term = $('#pq').value.trim().toLowerCase();
     const filtered = term ? products.filter(p => p.name.toLowerCase().includes(term) || (p.barcode && p.barcode.toLowerCase().includes(term))) : products;
     const list = sortList(filtered, $('#psort').value);
-    $('#pcount').textContent = term ? 'Menampilkan ' + list.length + ' dari ' + products.length + ' barang' : 'Total ' + products.length + ' barang';
+    $('#pcount').textContent = (term ? 'Menampilkan ' + list.length + ' dari ' + products.length + ' barang' : 'Total ' + products.length + ' barang') + ' · Tahan barang untuk edit/hapus';
     if (!products.length) { $('#pList').innerHTML = '<div class="empty">Belum ada barang.<br>Tekan + untuk menambah, atau pulihkan dari Google Sheets di menu Setelan.</div>'; return; }
     if (!list.length) { $('#pList').innerHTML = '<div class="empty">Barang tidak ditemukan.</div>'; return; }
     const shown = list.slice(0, pLimit);
@@ -778,10 +839,38 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   }
   $('#pq').addEventListener('input', () => { pLimit = 60; renderProduk(); });
   $('#psort').addEventListener('change', () => { pLimit = 60; renderProduk(); });
-  $('#pList').addEventListener('click', e => {
-    const c = e.target.closest('.card'); if (!c) return;
-    const p = products.find(x => x.id === c.dataset.id); if (p) productSheet(p);
-  });
+  // Tap biasa tidak melakukan apa-apa; tahan ~0,5 detik untuk membuka menu Edit / Hapus
+  (function () {
+    const list = $('#pList'); let timer = null, sx = 0, sy = 0;
+    const cancel = () => { clearTimeout(timer); timer = null; };
+    list.addEventListener('pointerdown', e => {
+      const c = e.target.closest('.card'); if (!c || !c.dataset.id) return;
+      sx = e.clientX; sy = e.clientY; cancel();
+      timer = setTimeout(() => {
+        timer = null;
+        const p = products.find(x => x.id === c.dataset.id); if (!p) return;
+        try { navigator.vibrate && navigator.vibrate(25); } catch (er) {}
+        productMenu(p);
+      }, 500);
+    });
+    list.addEventListener('pointermove', e => { if (timer && (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10)) cancel(); });
+    ['pointerup', 'pointercancel', 'pointerleave', 'scroll'].forEach(ev => list.addEventListener(ev, cancel, true));
+    window.addEventListener('scroll', cancel, true);
+    list.addEventListener('contextmenu', e => e.preventDefault());
+  })();
+  function productMenu(p) {
+    const ov = openSheet(`<h3>${esc(p.name)}</h3>
+      <p class="hint" style="margin-top:0">${rp(p.price)}${p.unit ? ' / ' + esc(p.unit) : ''}${p.barcode ? ' · ' + esc(p.barcode) : ''}</p>
+      <button class="btn primary full" id="pmEdit" type="button">✏️ Edit Barang</button>
+      <button class="btn danger full" id="pmDel" type="button" style="margin-top:10px">🗑 Hapus Barang</button>
+      <button class="btn ghost full" id="pmNo" type="button" style="margin-top:10px">Batal</button>`);
+    $('#pmNo', ov).onclick = () => ov.close();
+    $('#pmEdit', ov).onclick = () => { ov.close(); productSheet(p); };
+    $('#pmDel', ov).onclick = async () => {
+      if (!(await confirmSheet('Hapus "' + esc(p.name) + '" dari daftar barang?', { title: 'Hapus Barang', ok: 'Hapus', danger: true }))) return;
+      products = products.filter(x => x.id !== p.id); saveProducts(); ov.close(); renderProduk(); toast('Barang dihapus');
+    };
+  }
   $('#pAdd').onclick = () => productSheet(null);
   function productSheet(p) {
     const ov = openSheet(`<h3>${p ? 'Edit Barang' : 'Tambah Barang'}</h3>
@@ -933,7 +1022,7 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   function renderSetelan() {
     $('#sNama').value = settings.name; $('#sAlamat').value = settings.address; $('#sKasir').value = kasirName;
     const g = gsCfg(); $('#gUrl').value = g.url || ''; $('#gToken').value = g.token || '';
-    $('#sPrintMode').value = printMode();
+    $('#sPrintMode').value = printMode(); gsRefreshStatus();
     $('#sBtInfo').textContent = btSupported()
       ? 'Nyalakan printer dan Bluetooth HP, lalu tekan "Hubungkan" dan pilih printer (jangan dipasangkan lewat menu Bluetooth bawaan HP jika tidak muncul di daftar).'
       : 'Browser ini tidak mendukung Bluetooth langsung. Gunakan Chrome di Android dengan halaman HTTPS, atau pakai "Menu cetak HP".';
@@ -956,7 +1045,9 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
       if (!list.length) { toast('Sheets kosong', 'err'); return; }
       if (!(await confirmSheet('Ganti ' + products.length + ' barang di HP ini dengan ' + list.length + ' barang dari Google Sheets?', { title: 'Pulihkan dari Sheets', ok: 'Ganti' }))) return;
       products = list.map(p => ({ id: p.id || uid(), name: p.name, price: p.price, barcode: p.barcode || '', unit: cleanUnit(p.unit) }));
-      saveProducts(); toast('Dipulihkan: ' + list.length + ' barang');
+      abSkip = true; saveProducts(); abSkip = false;
+      setJ('gsync', { base: list.length, at: Date.now(), pending: false }); gsRefreshStatus();
+      toast('Dipulihkan: ' + list.length + ' barang');
     } catch (e) { toast('Gagal: ' + String(e.message || e).slice(0, 60), 'err'); }
   };
 
