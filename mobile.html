@@ -724,14 +724,14 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   function quickAdd(raw) {
     const looksCode = /^\d{6,}$/.test(raw);
     const ov = openSheet(`<h3>⚡ Barang belum terdaftar</h3>
-      <label class="l">Nama Barang</label><input class="inp" id="qaN" type="text" value="${looksCode ? '' : esc(raw)}">
+      <label class="l">Nama Barang</label><input class="inp" id="qaN" name="brg_1_qan" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" type="text" value="${looksCode ? '' : esc(raw)}">
       <div class="row2">
-        <div><label class="l">Harga (Rp)</label><input class="inp mono" id="qaP" type="text" inputmode="numeric"></div>
-        <div><label class="l">Qty</label><input class="inp mono" id="qaQ" type="text" inputmode="numeric" value="1"></div>
+        <div><label class="l">Harga (Rp)</label><input class="inp mono" id="qaP" name="brg_2_qap" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" type="text" inputmode="numeric"></div>
+        <div><label class="l">Qty</label><input class="inp mono" id="qaQ" name="brg_3_qaq" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" type="text" inputmode="numeric" value="1"></div>
       </div>
       <div class="row2">
-        <div><label class="l">Satuan</label><input class="inp" id="qaU" type="text" maxlength="12" placeholder="opsional"></div>
-        <div><label class="l">Barcode</label><input class="inp mono" id="qaB" type="text" value="${looksCode ? esc(raw) : ''}" placeholder="opsional"></div>
+        <div><label class="l">Satuan</label><input class="inp" id="qaU" name="brg_4_qau" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" type="text" maxlength="12" placeholder="opsional"></div>
+        <div><label class="l">Barcode</label><input class="inp mono" id="qaB" name="brg_5_qab" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" type="text" value="${looksCode ? esc(raw) : ''}" placeholder="opsional"></div>
       </div>
       <label style="display:flex;gap:8px;align-items:center;margin-top:14px;font-size:13.5px"><input type="checkbox" id="qaS" style="width:18px;height:18px"> Simpan ke daftar produk</label>
       <div class="row2" style="margin-top:14px"><button class="btn ghost" id="qaNo">Batal</button><button class="btn primary" id="qaOk">Masukkan</button></div>`);
@@ -1123,12 +1123,12 @@ label.l{display:block;font-size:12px;font-weight:700;color:var(--soft);margin:12
   $('#pAdd').onclick = () => productSheet(null);
   function productSheet(p) {
     const ov = openSheet(`<h3>${p ? 'Edit Barang' : 'Tambah Barang'}</h3>
-      <label class="l">Nama Barang</label><input class="inp" id="mN" type="text" value="${p ? esc(p.name) : ''}">
+      <label class="l">Nama Barang</label><input class="inp" id="mN" name="brg_6_mn" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" type="text" value="${p ? esc(p.name) : ''}">
       <div class="row2">
-        <div><label class="l">Harga (Rp)</label><input class="inp mono" id="mP" type="text" inputmode="numeric" value="${p ? p.price.toLocaleString('id-ID') : ''}"></div>
-        <div><label class="l">Satuan</label><input class="inp" id="mU" type="text" maxlength="12" value="${p ? esc(cleanUnit(p.unit)) : ''}" placeholder="pcs, dus, kg"></div>
+        <div><label class="l">Harga (Rp)</label><input class="inp mono" id="mP" name="brg_7_mp" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" type="text" inputmode="numeric" value="${p ? p.price.toLocaleString('id-ID') : ''}"></div>
+        <div><label class="l">Satuan</label><input class="inp" id="mU" name="brg_8_mu" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" type="text" maxlength="12" value="${p ? esc(cleanUnit(p.unit)) : ''}" placeholder="pcs, dus, kg"></div>
       </div>
-      <label class="l">Barcode (opsional)</label><input class="inp mono" id="mB" type="text" value="${p && p.barcode ? esc(p.barcode) : ''}">
+      <label class="l">Barcode (opsional)</label><input class="inp mono" id="mB" name="brg_9_mb" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other" type="text" value="${p && p.barcode ? esc(p.barcode) : ''}">
       <div class="row2" style="margin-top:14px"><button class="btn ghost" id="mNo">Batal</button><button class="btn primary" id="mOk">${p ? 'Simpan' : 'Tambah'}</button></div>
       ${p ? '<button class="btn danger full" id="mDel">Hapus Barang</button>' : ''}`);
     moneyInput($('#mP', ov));
