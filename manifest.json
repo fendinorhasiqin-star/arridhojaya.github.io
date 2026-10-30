@@ -1,6 +1,6 @@
 {
-  "name": "Toko Arridho Jaya - Kasir",
-  "short_name": "Kasir AJ",
+  "name": "Toko Arridho Jaya",
+  "short_name": "KASIR AJ",
   "description": "Aplikasi kasir Toko Arridho Jaya",
   "start_url": "./",
   "scope": "./",
