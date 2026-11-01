@@ -644,6 +644,23 @@ body {
     border-radius: 0 0 24px 24px;
   }
 }
+
+/* AKUN */
+.akun-banner{display:flex;align-items:flex-start;gap:12px;background:#E5F5EA;border:1px solid #CFE9D9;border-radius:16px;padding:13px 14px;margin:0 0 16px}
+.akun-banner[hidden]{display:none}
+.akun-banner > i{color:#16834A;font-size:18px;margin-top:2px}
+.akun-banner > div{flex:1;min-width:0}
+.akun-banner strong{display:block;font-size:13px;color:#0D6638}
+.akun-banner p{font-size:12px;color:#3d5a49;margin-top:3px;line-height:1.45}
+.akun-banner .aksi{display:flex;gap:8px;margin-top:10px}
+.akun-banner .aksi button{border:0;border-radius:10px;font:inherit;font-size:12px;font-weight:700;padding:8px 12px;cursor:pointer}
+.akun-banner .masuk{background:#16834A;color:#fff}
+.akun-banner .nanti{background:transparent;color:#0D6638}
+.akun-row{display:flex;align-items:center;gap:12px;margin:12px 0 4px}
+.akun-row > div{min-width:0}
+.akun-row img,.akun-avatar{width:40px;height:40px;border-radius:50%;background:#E5F5EA;color:#16834A;display:grid;place-items:center;object-fit:cover;flex:none}
+.akun-row strong{display:block;font-size:13px}
+.akun-row small{display:block;font-size:11px;color:#89958E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 
@@ -670,6 +687,18 @@ body {
     <div class="heading">
       <h1>Dashboard</h1>
       <p>Ringkasan aktivitas toko hari ini</p>
+    </div>
+
+    <div class="akun-banner" id="akunBanner" hidden>
+      <i class="fa-solid fa-cloud-arrow-up"></i>
+      <div>
+        <strong>Amankan data toko Anda</strong>
+        <p id="akunBannerTeks"></p>
+        <div class="aksi">
+          <button type="button" class="masuk" onclick="location.href='login.html'">Masuk dengan Google</button>
+          <button type="button" class="nanti" onclick="tutupAkunBanner()">Nanti</button>
+        </div>
+      </div>
     </div>
 
     <section class="summary">
@@ -812,6 +841,7 @@ body {
 
 <script>
 const FREE_PRODUCT_LIMIT = 50;
+const SINKRON_PRODUK_SIAP = false; // ubah ke true HANYA setelah produk benar-benar disimpan ke akun (Firestore)
 const ACTIVATION_CODE = '1111--0000-9999-8888'; // Isi dengan kode aktivasi yang Anda tetapkan.
 const WHATSAPP_NUMBER = '6287875015256'; // Opsional: nomor internasional tanpa tanda +, spasi, atau strip.
 const defaultProducts = [
@@ -1815,7 +1845,7 @@ function filterReports() {
   document.getElementById('featureContent').innerHTML = renderReports(period, start, end);
 }
 function renderSettings() {
-  return `<form class="feature-form" onsubmit="saveSettings(event)"><h3>Profil toko</h3><input name="shop" placeholder="Nama toko" value="${escapeHTML(data.settings.shop)}" required><input name="address" placeholder="Alamat toko (opsional)" value="${escapeHTML(data.settings.address || '')}"><input name="admin" placeholder="Nama admin" value="${escapeHTML(data.settings.admin)}" required><button type="submit">Simpan pengaturan</button></form>
+  return `${renderAkunCard()}<form class="feature-form" onsubmit="saveSettings(event)"><h3>Profil toko</h3><input name="shop" placeholder="Nama toko" value="${escapeHTML(data.settings.shop)}" required><input name="address" placeholder="Alamat toko (opsional)" value="${escapeHTML(data.settings.address || '')}"><input name="admin" placeholder="Nama admin" value="${escapeHTML(data.settings.admin)}" required><button type="submit">Simpan pengaturan</button></form>
     <section class="feature-card"><h3>Printer thermal</h3><p>Cetak langsung lewat Bluetooth LE (ESC/POS), atau gunakan menu cetak Android.</p>
       <select id="printMode" onchange="savePrintMode(this.value)" aria-label="Metode cetak"><option value="bt" ${(localStorage.getItem('pos_printMode') || (bluetoothSupported() ? 'bt' : 'system')) === 'bt' ? 'selected' : ''}>Bluetooth langsung</option><option value="system" ${(localStorage.getItem('pos_printMode') || (bluetoothSupported() ? 'bt' : 'system')) === 'system' ? 'selected' : ''}>Menu cetak Android</option></select>
       <button class="feature-button secondary" type="button" style="width:100%;margin-top:10px" onclick="connectBluetoothPrinter()">Hubungkan / pilih printer</button>
@@ -2118,11 +2148,63 @@ function saveSettings(event) {
   alert('Pengaturan berhasil disimpan.');
 }
 function resetData() {
-  if (!confirm('Semua data POS di browser ini akan dihapus. Lanjutkan?')) return;
+  const saran = akunSaatIni() ? '' : (SINKRON_PRODUK_SIAP ? '\n\nData ini belum tersimpan di akun. Masuk dengan Google atau ekspor produk dulu supaya tidak hilang permanen.' : '\n\nEkspor produk dulu supaya tidak hilang permanen.');
+  if (!confirm('Semua data POS di browser ini akan dihapus. Lanjutkan?' + saran)) return;
   ['products', 'suppliers', 'customers', 'debts', 'transactions', 'purchases', 'settings'].forEach(key => localStorage.removeItem('pos_' + key));
   location.reload();
 }
+/* ===== AKUN (login Google opsional) ===== */
+function akunSaatIni() {
+  try {
+    const uid = localStorage.getItem('pos_profil_ok');
+    if (!uid) return null;
+    return { uid, ...JSON.parse(localStorage.getItem('pos_akun') || '{}') };
+  } catch (error) { return null; }
+}
+function renderAkunCard() {
+  const akun = akunSaatIni();
+  if (akun) {
+    return `<section class="feature-card akun-card"><h3>Akun</h3>
+      <div class="akun-row">
+        ${akun.foto ? `<img src="${escapeHTML(akun.foto)}" alt="" referrerpolicy="no-referrer">` : '<span class="akun-avatar"><i class="fa-solid fa-user"></i></span>'}
+        <div><strong>${escapeHTML(akun.nama || 'Akun Google')}</strong><small>${escapeHTML(akun.email || '')}</small></div>
+      </div>
+      <p>${SINKRON_PRODUK_SIAP ? 'Produk Anda tersimpan di akun ini dan tidak akan hilang walau ganti HP.' : 'Anda sudah masuk. Penyimpanan produk otomatis ke akun belum aktif; sementara itu simpan manual lewat Ekspor produk di bawah.'}</p>
+      <button class="feature-button secondary" type="button" style="width:100%;margin-top:12px" onclick="keluarAkun()">Keluar dari akun</button></section>`;
+  }
+  return `<section class="feature-card akun-card"><h3>Akun</h3>
+    <p>${SINKRON_PRODUK_SIAP ? 'Saat ini produk hanya tersimpan di HP ini. Masuk dengan Google supaya produk otomatis aman dan tidak akan hilang, bahkan kalau HP rusak atau aplikasi terhapus.' : 'Masuk dengan Google untuk menghubungkan toko Anda ke akun. Penyimpanan produk otomatis ke akun belum aktif; sementara itu simpan manual lewat Ekspor produk di bawah.'}</p>
+    <button class="feature-button" type="button" style="width:100%;margin-top:12px" onclick="location.href='login.html'"><i class="fa-brands fa-google" aria-hidden="true" style="margin-right:7px"></i>Masuk dengan Google</button>
+    <p class="product-hint">Kata sandi Google Anda tidak pernah dilihat aplikasi ini.</p></section>`;
+}
+function keluarAkun() {
+  if (!confirm('Keluar dari akun? Data di HP ini tetap ada.')) return;
+  location.href = 'login.html?keluar=1';
+}
+function updateAkunBanner() {
+  const el = document.getElementById('akunBanner');
+  if (!el) return;
+  if (!SINKRON_PRODUK_SIAP || akunSaatIni()) { el.hidden = true; return; }
+  const jumlah = data.products.length;
+  const tingkat = jumlah >= 40 ? 2 : jumlah >= 10 ? 1 : 0;
+  if (!tingkat) { el.hidden = true; return; }
+  let tutup = null;
+  try { tutup = JSON.parse(localStorage.getItem('pos_banner_akun') || 'null'); } catch (error) {}
+  if (tutup && tutup.tingkat >= tingkat && Date.now() - tutup.waktu < 3 * 24 * 60 * 60 * 1000) { el.hidden = true; return; }
+  document.getElementById('akunBannerTeks').textContent = tingkat === 2
+    ? `${jumlah} produk Anda baru tersimpan di HP ini. Masuk dengan Google supaya tidak hilang kalau HP rusak atau aplikasi terhapus.`
+    : 'Data Anda baru tersimpan di HP ini. Masuk dengan Google supaya produk aman dan tidak hilang.';
+  el.dataset.tingkat = tingkat;
+  el.hidden = false;
+}
+function tutupAkunBanner() {
+  const el = document.getElementById('akunBanner');
+  try { localStorage.setItem('pos_banner_akun', JSON.stringify({ waktu: Date.now(), tingkat: Number(el.dataset.tingkat) || 1 })); } catch (error) {}
+  el.hidden = true;
+}
+
 function updateDashboard() {
+  updateAkunBanner();
   const today = new Date().toDateString();
   const todaysTransactions = data.transactions.filter(transaction => new Date(transaction.date).toDateString() === today);
   const sales = todaysTransactions.reduce((sum, transaction) => sum + transaction.total, 0);
